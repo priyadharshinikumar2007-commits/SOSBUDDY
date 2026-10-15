@@ -4,8 +4,7 @@ services:
     runtime: static
     plan: free
     rootDir: sosbuddy
-    buildCommand: npm run build
-    staticPublishPath: dist
+    staticPublishPath: .
     envVars:
       - key: VITE_API_URL
         value: https://sos-backend-production-0e25.up.railway.app
