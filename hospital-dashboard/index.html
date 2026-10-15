@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Emergency — Hospital Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:#f3f6fb;color:#17243b;-webkit-font-smoothing:antialiased}
+svg{display:block}
+.layout{display:flex;min-height:100vh}
+.sidebar{width:230px;background:#13233f;color:#fff;padding:22px 14px;flex-shrink:0;display:flex;flex-direction:column}
+.logo{font-size:19px;font-weight:800;margin-bottom:28px;display:flex;align-items:center;gap:9px}
+.logo svg{width:22px;height:22px;color:#ff555d}
+.logo span{color:#ff555d}
+.nav-btn{width:100%;text-align:left;padding:11px 12px;margin-bottom:4px;border:none;
+  border-radius:8px;background:transparent;color:#d5deed;cursor:pointer;font-size:13.5px;
+  font-family:inherit;display:flex;align-items:center;gap:10px;transition:.15s}
+.nav-btn svg{width:17px;height:17px;flex-shrink:0}
+.nav-btn:hover,.nav-btn.active{background:#304565;color:#fff}
+.sidebar-footer{margin-top:auto;padding:14px 8px;font-size:10px;color:#6b7a94;line-height:1.5}
+.main{flex:1;padding:24px;min-width:0}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+h1{font-size:25px;margin-bottom:4px}
+.subtitle{color:#7b879a;font-size:12.5px}
+.conn{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;
+  background:#fff;border:1px solid #e8edf4;font-size:11px;color:#7b879a;font-weight:600}
+.conn .dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:blink 1.2s infinite}
+.conn.ok{color:#16815e}.conn.ok .dot{background:#22c55e;animation:none}
+.conn.err{color:#cf343b}.conn.err .dot{background:#e5484d;animation:none}
+@keyframes blink{50%{opacity:.4}}
+.icon-btn{width:36px;height:36px;border-radius:9px;background:#fff;border:1px solid #e8edf4;
+  cursor:pointer;color:#475569;display:inline-flex;align-items:center;justify-content:center;transition:.15s}
+.icon-btn svg{width:17px;height:17px}
+.icon-btn:hover{background:#eef2f8;color:#17243b}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.stat{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:15px 17px;display:flex;align-items:center;gap:12px}
+.stat-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-icon svg{width:20px;height:20px}
+.stat-icon.new{background:#fff0f0;color:#cf343b}
+.stat-icon.active{background:#fff2d9;color:#986307}
+.stat-icon.resolved{background:#e5f8ef;color:#16815e}
+.stat p{color:#7b879a;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.stat h2{font-size:25px;margin-top:2px}
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);gap:18px}
+.panel{background:#fff;border:1px solid #e8edf4;border-radius:12px;padding:17px;margin-bottom:18px}
+.panel h2{font-size:15.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panel h2 svg{width:17px;height:17px;color:#356ae6}
+.panel h2 .count{margin-left:auto;font-size:12px;font-weight:600;color:#7b879a;background:#f3f6fb;padding:2px 8px;border-radius:10px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid #edf1f6;font-size:12.5px}
+th{background:#f8fafd;color:#7b879a;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+tbody tr{cursor:pointer;transition:.1s}
+tbody tr:hover{background:#f5f8ff}
+tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
+.empty{padding:30px;text-align:center;color:#94a3b8;font-size:13px}
+.status{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10.5px;font-weight:700}
+.status.New{background:#fff0f0;color:#cf343b}
+.status.Acknowledged{background:#eaf1ff;color:#315bc1}
+.status.In-Progress,.status.Dispatched{background:#fff2d9;color:#986307}
+.status.Resolved{background:#e5f8ef;color:#16815e}
+.toast{position:fixed;bottom:20px;right:20px;background:#13233f;color:#fff;padding:13px 17px;
+  border-radius:10px;display:none;max-width:340px;font-size:13px;z-index:10;
+  box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#map{width:100%;height:340px;border-radius:10px;background:#e5eef7;z-index:0}
+.map-legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:11.5px;color:#475569}
+.map-legend span{display:inline-flex;align-items:center;gap:6px}
+.map-legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.map-legend .p{background:#e5484d}
+.map-legend .a{background:#2563eb}
+.map-legend .d{background:#16a34a}
+.map-legend .h{background:#7c3aed}
+.dispatch-list{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.dispatch-row{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border:1px solid #e8edf4;border-radius:9px;background:#fcfdff;font-size:12.5px}
+.dispatch-row .avatar{width:32px;height:32px;border-radius:8px;font-size:11.5px;
+  background:#e1eaff;color:#315bc1;display:grid;place-items:center;font-weight:800}
+.dispatch-row .info{flex:1;min-width:0}
+.dispatch-row .info strong{display:block;font-size:12.5px}
+.dispatch-row .info small{color:#7b879a;font-size:10.5px}
+.dispatch-row button{padding:7px 12px;border:none;border-radius:7px;background:#16a34a;
+  color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.dispatch-row button svg{width:13px;height:13px}
+.dispatch-row button:disabled{background:#cbd5e1;cursor:not-allowed}
+.dispatch-row .dist{font-size:11px;color:#7b879a;font-weight:600;min-width:60px;text-align:right}
+.mk{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;color:#fff;font-size:11px;font-weight:800;
+  box-shadow:0 3px 10px rgba(0,0,0,.3);border:2px solid #fff}
+.mk.amb{background:#2563eb}
+.mk.amb.dispatched{background:#16a34a}
+.mk.pat{background:#e5484d;animation:mkPulse 1.6s infinite}
+.mk.hosp{background:#7c3aed}
+@keyframes mkPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.5)}
+  70%{box-shadow:0 0 0 14px rgba(229,72,77,0)}
+  100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+.popup-ov{position:fixed;inset:0;background:rgba(15,23,42,.65);display:none;
+  align-items:center;justify-content:center;z-index:9999;padding:20px}
+.popup-ov.show{display:flex}
+.popup{background:#fff;border-radius:16px;max-width:520px;width:100%;overflow:hidden;
+  box-shadow:0 25px 60px rgba(15,23,42,.5);animation:popIn .3s ease}
+@keyframes popIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.popup-header{background:linear-gradient(135deg,#e5484d,#b91c1c);padding:20px 22px;color:#fff;position:relative;
+  display:flex;align-items:center;gap:12px}
+.popup-header-icon{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.popup-header-icon svg{width:22px;height:22px}
+.popup-header h2{font-size:17px;font-weight:800;letter-spacing:.4px;margin-bottom:3px}
+.popup-header p{font-size:11.5px;opacity:.92}
+.popup-close-x{position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;
+  border-radius:8px;background:rgba(255,255,255,.25);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.popup-close-x svg{width:16px;height:16px}
+.popup-body{padding:20px 22px;max-height:60vh;overflow-y:auto}
+.popup-id{font-family:'Courier New',monospace;font-weight:800;font-size:15px;color:#0f172a;
+  padding:9px 13px;background:#f3f6fb;border-radius:8px;display:inline-block;margin-bottom:14px;
+  border:1px solid #e2e8f0}
+.popup-row{display:flex;justify-content:space-between;padding:9px 0;font-size:13px;
+  border-bottom:1px solid #f1f5f9;gap:12px;align-items:center}
+.popup-row:last-of-type{border-bottom:none}
+.popup-row span:first-child{color:#7b879a;font-weight:600;flex-shrink:0}
+.popup-row span:last-child{font-weight:600;text-align:right;word-break:break-word;max-width:65%}
+.popup-warn{margin-top:12px;padding:11px 13px;border-radius:9px;background:#fff0f0;
+  border:1px solid #ffd4d4;color:#a63a3a;font-size:12.5px;line-height:1.5;font-weight:600;
+  display:flex;align-items:center;gap:8px}
+.popup-warn svg{width:16px;height:16px;flex-shrink:0}
+.popup-actions{display:flex;gap:10px;padding:0 22px 22px}
+.popup-actions button{flex:1;padding:12px;border:none;border-radius:9px;font-size:13px;
+  font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;
+  justify-content:center;gap:7px}
+.popup-actions button svg{width:15px;height:15px}
+.popup-view{background:#356ae6;color:#fff}.popup-view:hover{background:#2854c4}
+.popup-ack{background:#e9eef6;color:#263850}.popup-ack:hover{background:#dbe3ef}
+.login-ov{position:fixed;inset:0;background:#f3f6fb;display:none;align-items:center;
+  justify-content:center;z-index:300;padding:20px}
+.login-ov.show{display:flex}
+.login-card{background:#fff;border:1px solid #e8edf4;border-radius:14px;padding:28px;
+  width:100%;max-width:360px;box-shadow:0 20px 50px rgba(23,36,59,.1)}
+.login-card h2{font-size:19px;margin-bottom:5px}
+.login-card p{font-size:12.5px;color:#7b879a;margin-bottom:18px}
+.login-card label{display:block;font-size:11px;color:#7b879a;font-weight:700;margin-bottom:5px;text-transform:uppercase}
+.login-card input{width:100%;margin-bottom:13px;padding:11px 13px;border:1px solid #dfe5ef;
+  border-radius:8px;font-size:13px;font-family:inherit;outline:none}
+.login-card input:focus{border-color:#356ae6}
+.login-card button{width:100%;background:#13233f;color:#fff;border:none;border-radius:9px;
+  padding:12px;font-size:14px;font-weight:700;cursor:pointer}
+.login-err{color:#cf343b;font-size:12px;margin-bottom:10px;min-height:16px}
+.detail{border:1px solid #e8edf4;border-radius:9px;padding:11px;background:#fcfdff}
+.detail label{font-size:10.5px;color:#7b879a;font-weight:600;display:block;margin-bottom:4px}
+@media (max-width:1050px){.grid{grid-template-columns:1fr}}
+@media (max-width:650px){.layout{display:block}.sidebar{width:100%}.main{padding:14px}.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+  <symbol id="i-siren" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></symbol>
+  <symbol id="i-ambulance" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 10H6"/><path d="M8 8v4"/><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M14 18v-4h-4v4"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+  <symbol id="i-cross" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16"/><path d="M4 12h16"/></symbol>
+</svg>
+
+<div class="login-ov" id="loginOverlay">
+  <div class="login-card">
+    <h2>Hospital Staff Login</h2>
+    <p>Sign in to view incoming emergency alerts.</p>
+    <label>Username</label>
+    <input id="loginUser" type="text" placeholder="hospital">
+    <label>Password</label>
+    <input id="loginPass" type="password" placeholder="••••••••">
+    <div class="login-err" id="loginErr"></div>
+    <button id="loginBtn">Sign In</button>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo"><svg><use href="#i-cross"/></svg>SOS <span>Emergency</span></div>
+    <button class="nav-btn active"><svg><use href="#i-dashboard"/></svg> Dashboard</button>
+    <button class="nav-btn" onclick="openAlertsPopup()"><svg><use href="#i-siren"/></svg> Emergency Alerts</button>
+    <button class="nav-btn" onclick="openPatientRecordsPopup()"><svg><use href="#i-users"/></svg> Patient Records</button>
+    <div class="sidebar-footer">SOS Buddy · Hospital Integration</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Hospital Emergency Dashboard</h1>
+        <p class="subtitle">Monitor SOS alerts and patient medical information.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="conn" id="connBadge"><span class="dot"></span><span id="connText">Connecting…</span></span>
+        <button class="icon-btn" title="Sign out" onclick="logout()"><svg><use href="#i-logout"/></svg></button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-icon new"><svg><use href="#i-alert"/></svg></div><div><p>New Alerts</p><h2 id="newCount">0</h2></div></div>
+      <div class="stat"><div class="stat-icon active"><svg><use href="#i-siren"/></svg></div><div><p>Active Incidents</p><h2 id="activeCount">0</h2></div></div>
+      <div class="stat"><div class="stat-icon resolved"><svg><use href="#i-check"/></svg></div><div><p>Resolved</p><h2 id="resolvedCount">0</h2></div></div>
+    </div>
+
+    <div class="grid">
+      <section>
+        <div class="panel">
+          <h2><svg><use href="#i-siren"/></svg> Emergency Alerts <span class="count" id="alertCount">0</span></h2>
+          <table>
+            <thead><tr><th>Patient</th><th>Blood</th><th>Emergency</th><th>Status</th></tr></thead>
+            <tbody id="alertRows"></tbody>
+          </table>
+          <p style="margin-top:12px;font-size:11px;color:#7b879a" id="tableCount"></p>
+        </div>
+        <div class="panel">
+          <h2><svg><use href="#i-map"/></svg> Live Incident Map</h2>
+          <div id="map"></div>
+          <div class="map-legend">
+            <span><i class="p"></i> Patient</span>
+            <span><i class="a"></i> Available ambulance</span>
+            <span><i class="d"></i> Dispatched</span>
+            <span><i class="h"></i> Hospital</span>
+          </div>
+          <div class="dispatch-list" id="dispatchList"></div>
+        </div>
+      </section>
+      <section>
+        <div class="panel">
+          <h2><svg><use href="#i-users"/></svg> Patient Medical Profile</h2>
+          <div id="patientDetails"><p class="empty">Select an alert to view patient details.</p></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="popup-ov" id="popupOverlay">
+  <div class="popup">
+    <div class="popup-header">
+      <div class="popup-header-icon"><svg><use href="#i-alert"/></svg></div>
+      <div>
+        <h2>NEW EMERGENCY ALERT</h2>
+        <p>A new SOS has been received from SOS Buddy.</p>
+      </div>
+      <button class="popup-close-x" onclick="closePopup()"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div class="popup-body" id="popupBody"></div>
+    <div class="popup-actions">
+      <button class="popup-ack" onclick="popupAcknowledge()"><svg><use href="#i-check"/></svg> Acknowledge</button>
+      <button class="popup-view" onclick="popupView()"><svg><use href="#i-users"/></svg> View Full Details</button>
+    </div>
+  </div>
+</div>
+
+<!-- Emergency Alerts popup -->
+<div class="popup-ov" id="alertsPopupOverlay">
+  <div class="popup" style="max-width:640px">
+    <div class="popup-header" style="background:linear-gradient(135deg,#356ae6,#1e40af)">
+      <div class="popup-header-icon"><svg><use href="#i-siren"/></svg></div>
+      <div>
+        <h2>RECENT EMERGENCY ALERTS</h2>
+        <p>All incidents received on this dashboard.</p>
+      </div>
+      <button class="popup-close-x" onclick="closeAlertsPopup()"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div class="popup-body" id="alertsPopupBody"></div>
+  </div>
+</div>
+
+<!-- Patient Records popup -->
+<div class="popup-ov" id="recordsPopupOverlay">
+  <div class="popup" style="max-width:640px">
+    <div class="popup-header" style="background:linear-gradient(135deg,#0f766e,#059669)">
+      <div class="popup-header-icon"><svg><use href="#i-users"/></svg></div>
+      <div>
+        <h2>PATIENT RECORDS</h2>
+        <p>Medical profiles of patients who triggered an SOS.</p>
+      </div>
+      <button class="popup-close-x" onclick="closePatientRecordsPopup()"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div class="popup-body" id="recordsPopupBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const API_BASE = 'http://localhost:4000';
+const LS_KEY = 'sosbuddy-dashboard-auth';
+const SEEN_KEY = 'sosbuddy-seen-ids-v11';
+const DEFAULT_CENTER = [13.0827, 80.2707];
+
+let incidents = [];
+let selectedId = null;
+let authHeader = null;
+let currentPopupIncidentId = null;
+
+/* ============================================================
+   SAMPLE RECORDS
+   These are demo incidents shown in the Emergency Alerts popup
+   and the Patient Records popup. Real SOS incidents appear
+   alongside them in the dashboard list.
+   ============================================================ */
+const SAMPLE_INCIDENTS = [
+  {
+    incident_id: 'SAMPLE-0001',
+    name: 'Ananya Sharma',
+    age: '28',
+    blood: 'O+',
+    allergies: 'Penicillin',
+    conditions: 'Asthma',
+    medications: 'Salbutamol inhaler (as needed)',
+    other_info: 'Breathing difficulty reported at time of SOS.',
+    status: 'Acknowledged',
+    source: 'qr-scan',
+    created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    latitude: 13.0418,
+    longitude: 80.2341
+  },
+  {
+    incident_id: 'SAMPLE-0002',
+    name: 'Rahul Menon',
+    age: '45',
+    blood: 'B+',
+    allergies: 'Not provided',
+    conditions: 'Hypertension',
+    medications: 'Amlodipine 5 mg once daily',
+    other_info: 'Road accident — suspected fractures.',
+    status: 'In Progress',
+    source: 'in-app',
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    latitude: 13.0012,
+    longitude: 80.2570
+  },
+  {
+    incident_id: 'SAMPLE-0003',
+    name: 'Meera Krishnan',
+    age: '63',
+    blood: 'A-',
+    allergies: 'Sulfa drugs',
+    conditions: 'Type 2 diabetes',
+    medications: 'Metformin 500 mg twice daily',
+    other_info: 'Chest discomfort reported.',
+    status: 'Resolved',
+    source: 'qr-scan',
+    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    latitude: 12.9791,
+    longitude: 80.2204
+  }
+];
+
+/* ============================================================
+   EMERGENCY ALERTS POPUP
+   ============================================================ */
+function openAlertsPopup(){
+  // Combine real incidents with sample incidents, sort newest first
+  const all = [...incidents, ...SAMPLE_INCIDENTS]
+    .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+
+  const body = document.getElementById('alertsPopupBody');
+
+  if(!all.length){
+    body.innerHTML = '<div class="empty">No alerts yet.</div>';
+  } else {
+    body.innerHTML = all.map(i => {
+      const isSample = i.incident_id.startsWith('SAMPLE-');
+      const isActive = i.status === 'Acknowledged' || i.status === 'In Progress' || i.status === 'Dispatched' || i.status === 'New';
+      const dateStr = i.created_at
+        ? new Date(i.created_at).toLocaleString()
+        : '—';
+      return (
+        '<div class="dispatch-row" style="align-items:flex-start;padding:14px;margin-bottom:10px;cursor:pointer" ' +
+          'onclick="' + (isSample ? 'alert(\'Sample record — ' + safe(i.incident_id) + '\\nPatient: ' + safe(i.name) + '\\nStatus: ' + safe(i.status) + '\')' : 'closeAlertsPopup();selectIncident(\'' + i.incident_id + '\')') + '">' +
+          '<div class="avatar" style="width:42px;height:42px;font-size:13px;border-radius:12px;background:#e1eaff;color:#315bc1">' +
+            safe((i.name||'?').charAt(0).toUpperCase()) +
+          '</div>' +
+          '<div class="info">' +
+            '<strong>' + safe(i.name || 'Unknown patient') + (isSample ? ' <span style="font-size:9px;font-weight:800;color:#986307;background:#fff2d9;padding:2px 6px;border-radius:6px;margin-left:6px">SAMPLE</span>' : '') + '</strong>' +
+            '<small style="margin-top:3px">' +
+              '<strong style="font-family:monospace;color:#0f172a">' + safe(i.incident_id) + '</strong>' +
+              ' · ' + safe(dateStr) +
+            '</small>' +
+            '<small>Blood: <strong>' + safe(i.blood || '—') + '</strong> · ' + safe(i.conditions || i.other_info || 'Emergency SOS') + '</small>' +
+          '</div>' +
+          '<span class="status ' + String(i.status).replace(/\s+/g,'-') + '" style="align-self:flex-start">' + safe(i.status) + '</span>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  document.getElementById('alertsPopupOverlay').classList.add('show');
+}
+function closeAlertsPopup(){
+  document.getElementById('alertsPopupOverlay').classList.remove('show');
+}
+document.getElementById('alertsPopupOverlay').addEventListener('click', e => {
+  if(e.target.id === 'alertsPopupOverlay') closeAlertsPopup();
+});
+
+/* ============================================================
+   PATIENT RECORDS POPUP
+   ============================================================ */
+function openPatientRecordsPopup(){
+  const all = [...incidents, ...SAMPLE_INCIDENTS]
+    .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
+
+  // De-duplicate by name so each patient appears once
+  const seen = new Set();
+  const unique = [];
+  for(const inc of all){
+    const key = (inc.name||'unknown').toLowerCase();
+    if(seen.has(key)) continue;
+    seen.add(key);
+    unique.push(inc);
+  }
+
+  const body = document.getElementById('recordsPopupBody');
+
+  if(!unique.length){
+    body.innerHTML = '<div class="empty">No patient records yet.</div>';
+  } else {
+    body.innerHTML = unique.map(i => {
+      const isSample = i.incident_id.startsWith('SAMPLE-');
+      return (
+        '<div style="border:1px solid #e8edf4;border-radius:12px;padding:16px;margin-bottom:12px;background:#fcfdff">' +
+          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px dashed #e2e8f0">' +
+            '<div style="width:44px;height:44px;border-radius:12px;background:#e1eaff;color:#315bc1;display:grid;place-items:center;font-weight:800;font-size:14px">' +
+              safe((i.name||'?').charAt(0).toUpperCase()) +
+            '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:14px;font-weight:800;color:#0f172a">' +
+                safe(i.name || 'Unknown patient') +
+                (isSample ? ' <span style="font-size:9px;font-weight:800;color:#986307;background:#fff2d9;padding:2px 6px;border-radius:6px;margin-left:6px">SAMPLE</span>' : '') +
+              '</div>' +
+              '<div style="font-size:11px;color:#7b879a;font-family:monospace">' + safe(i.incident_id) + (i.age ? ' · ' + safe(i.age) + ' yrs' : '') + '</div>' +
+            '</div>' +
+            '<span class="status ' + String(i.status||'New').replace(/\s+/g,'-') + '">' + safe(i.status || 'New') + '</span>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div class="detail"><label>BLOOD GROUP</label><div style="color:#cf343b;font-weight:800">' + safe(i.blood || 'Not provided') + '</div></div>' +
+            '<div class="detail"><label>AGE</label><div>' + (i.age ? safe(i.age) + ' years' : 'Not provided') + '</div></div>' +
+            '<div class="detail" style="grid-column:1/-1"><label>ALLERGIES</label><div>' + safe(i.allergies || 'Not provided') + '</div></div>' +
+            '<div class="detail" style="grid-column:1/-1"><label>CONDITIONS</label><div>' + safe(i.conditions || 'Not provided') + '</div></div>' +
+            '<div class="detail" style="grid-column:1/-1"><label>MEDICATIONS</label><div>' + safe(i.medications || 'Not provided') + '</div></div>' +
+            (i.other_info ? '<div class="detail" style="grid-column:1/-1"><label>OTHER NOTES</label><div>' + safe(i.other_info) + '</div></div>' : '') +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  document.getElementById('recordsPopupOverlay').classList.add('show');
+}
+function closePatientRecordsPopup(){
+  document.getElementById('recordsPopupOverlay').classList.remove('show');
+}
+document.getElementById('recordsPopupOverlay').addEventListener('click', e => {
+  if(e.target.id === 'recordsPopupOverlay') closePatientRecordsPopup();
+});
+
+const AMBULANCES = [
+  {id:'AMB-01',name:'Ambulance 01',status:'idle',lat:null,lng:null,hospital:'Apollo Main'},
+  {id:'AMB-02',name:'Ambulance 02',status:'idle',lat:null,lng:null,hospital:'Fortis Central'},
+  {id:'AMB-03',name:'Ambulance 03',status:'idle',lat:null,lng:null,hospital:'Global Health City'},
+  {id:'AMB-04',name:'Ambulance 04',status:'idle',lat:null,lng:null,hospital:'MIOT International'},
+  {id:'AMB-05',name:'Ambulance 05',status:'idle',lat:null,lng:null,hospital:'Apollo Greams'}
+];
+const HOSPITAL = {name:'Apollo Main Hospital',lat:null,lng:null};
+
+let map=null, markerLayer=null, routeLayer=null;
+
+const seenIds = new Set();
+try { const raw = sessionStorage.getItem(SEEN_KEY); if (raw) JSON.parse(raw).forEach(id => seenIds.add(id)); } catch(_) {}
+function persistSeen(){ try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seenIds])); } catch(_) {} }
+
+let firstFetchDone = false;
+
+function loadAuth(){ try { const raw = sessionStorage.getItem(LS_KEY); if (!raw) return false; authHeader = raw; return true; } catch(_) { return false; } }
+function saveAuth(u,p){ authHeader='Basic '+btoa(u+':'+p); try { sessionStorage.setItem(LS_KEY, authHeader); } catch(_) {} }
+function clearAuth(){ authHeader=null; try { sessionStorage.removeItem(LS_KEY); } catch(_) {} }
+function showLogin(){
+  document.getElementById('loginOverlay').classList.add('show');
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+  document.getElementById('loginErr').textContent='';
+}
+function hideLogin(){ document.getElementById('loginOverlay').classList.remove('show'); }
+document.getElementById('loginBtn').addEventListener('click', attemptLogin);
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+
+async function attemptLogin(){
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginErr');
+  err.textContent = '';
+  if(!user||!pass){ err.textContent='Enter username and password.'; return; }
+  const test = 'Basic ' + btoa(user+':'+pass);
+  try {
+    const r = await fetch(API_BASE + '/api/incidents', { headers:{'Authorization': test} });
+    if(r.status===401){ err.textContent='Incorrect credentials.'; return; }
+    if(!r.ok){ err.textContent='Server error ('+r.status+').'; return; }
+    saveAuth(user, pass);
+    hideLogin();
+    const data = await r.json();
+    incidents = data.incidents || [];
+    incidents.forEach(i => seenIds.add(i.incident_id));
+    persistSeen();
+    firstFetchDone = true;
+    renderAll(); initMap(); startSSE();
+  } catch(e){ err.textContent='Cannot reach backend. Is it running?'; }
+}
+function logout(){
+  clearAuth(); incidents=[]; selectedId=null; firstFetchDone=false;
+  seenIds.clear(); try { sessionStorage.removeItem(SEEN_KEY); } catch(_) {}
+  setConn('off','Signed out'); showLogin();
+}
+async function fetchIncidents(){
+  if(!authHeader) return;
+  try {
+    const r = await fetch(API_BASE + '/api/incidents', { headers:{'Authorization': authHeader} });
+    if(r.status===401){ showLogin(); return; }
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    incidents = data.incidents || [];
+    incidents.forEach(i => seenIds.add(i.incident_id));
+    persistSeen();
+    if(!selectedId && incidents.length) selectedId = incidents[0].incident_id;
+    setConn('ok','Live'); renderAll(); refreshMap();
+  } catch(e){ setConn('err','Backend offline'); }
+}
+function setConn(state,text){
+  const b = document.getElementById('connBadge');
+  b.classList.remove('ok','err');
+  if(state==='ok') b.classList.add('ok');
+  else if(state==='err') b.classList.add('err');
+  document.getElementById('connText').textContent = text;
+}
+async function startSSE(){
+  try {
+    const resp = await fetch(API_BASE + '/api/stream', { headers:{'Authorization': authHeader} });
+    if(!resp.body) throw new Error('No stream');
+    setConn('ok','Live');
+    const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    while(true){
+      const { value, done } = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, { stream:true });
+      let idx;
+      while((idx = buf.indexOf('\n\n')) !== -1){
+        const chunk = buf.slice(0, idx); buf = buf.slice(idx+2); handleSSE(chunk);
+      }
+    }
+    setConn('err','Disconnected');
+    if(authHeader) setTimeout(startSSE, 3000);
+  } catch(e){
+    setConn('err','Reconnecting…');
+    if(authHeader) setTimeout(startSSE, 3000);
+  }
+}
+function handleSSE(chunk){
+  const lines = chunk.split('\n');
+  let event = 'message', data = '';
+  for(const l of lines){
+    if(l.startsWith('event: ')) event = l.slice(7).trim();
+    else if(l.startsWith('data: ')) data += l.slice(6);
+  }
+  if(!data) return;
+  let payload; try { payload = JSON.parse(data); } catch { return; }
+  if(event==='incident'){
+    if(!firstFetchDone){ seenIds.add(payload.incident_id); persistSeen(); return; }
+    if(seenIds.has(payload.incident_id)) return;
+    seenIds.add(payload.incident_id); persistSeen();
+    incidents.unshift(payload);
+    if(!selectedId) selectedId = payload.incident_id;
+    renderAll();
+    placeAmbulancesAround(payload);
+    refreshMap();
+    fireAlert(payload);
+  } else if(event==='incident-updated'){
+    const i = incidents.findIndex(x => x.incident_id === payload.incident_id);
+    if(i !== -1) incidents[i] = payload;
+    renderAll(); refreshMap();
+  }
+}
+
+let audioCtx = null;
+function playSound(){
+  try {
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    [880, 660].forEach((freq, idx) => {
+      const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      o.connect(g); g.connect(audioCtx.destination);
+      const t0 = now + idx * 0.18;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.2, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+      o.start(t0); o.stop(t0 + 0.55);
+    });
+  } catch(e) {}
+}
+document.addEventListener('click', function unlock(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  document.removeEventListener('click', unlock);
+});
+function fireAlert(inc){ playSound(); showPopup(inc); }
+
+function showPopup(inc){
+  currentPopupIncidentId = inc.incident_id;
+  const timeStr = inc.created_at ? new Date(inc.created_at).toLocaleString() : '—';
+  const allergy = (inc.allergies || '').trim();
+  const hasAllergy = allergy && !/^(not provided|none reported|none)$/i.test(allergy);
+  const hasLoc = inc.latitude != null && inc.longitude != null;
+  const locationText = hasLoc ? Number(inc.latitude).toFixed(5)+', '+Number(inc.longitude).toFixed(5) : 'Not provided';
+  const sourceLabel = inc.source==='qr-scan' ? 'QR-scanned profile' :
+                      inc.source==='in-app' ? 'SOS Buddy app' :
+                      (inc.source || 'Not provided');
+
+  document.getElementById('popupBody').innerHTML =
+    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
+    '<div class="popup-row"><span>Patient</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
+    '<div class="popup-row"><span>Blood Group</span><span style="color:#cf343b;font-size:16px;font-weight:800">'+safe(inc.blood||'—')+'</span></div>' +
+    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Allergies</span><span>'+(inc.allergies ? safe(inc.allergies) : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Conditions</span><span>'+(inc.conditions ? safe(inc.conditions) : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Medications</span><span>'+(inc.medications ? safe(inc.medications) : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+'</span></div>' +
+    '<div class="popup-row"><span>Source</span><span>'+safe(sourceLabel)+'</span></div>' +
+    '<div class="popup-row"><span>Reported</span><span>'+safe(timeStr)+'</span></div>' +
+    (hasAllergy ? '<div class="popup-warn"><svg><use href="#i-alert"/></svg> Allergy warning: '+safe(allergy)+'</div>' : '');
+  document.getElementById('popupOverlay').classList.add('show');
+}
+function closePopup(){
+  document.getElementById('popupOverlay').classList.remove('show');
+  currentPopupIncidentId = null;
+}
+function popupView(){
+  if(currentPopupIncidentId){
+    selectedId = currentPopupIncidentId;
+    closePopup(); renderAll(); refreshMap();
+    document.getElementById('patientDetails').scrollIntoView({ behavior:'smooth' });
+  }
+}
+function popupAcknowledge(){
+  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'Acknowledged'); closePopup(); }
+}
+document.getElementById('popupOverlay').addEventListener('click', e => {
+  if(e.target.id === 'popupOverlay') closePopup();
+});
+
+function initMap(){
+  if(map) return;
+  if(typeof L === 'undefined'){ setTimeout(initMap, 300); return; }
+  map = L.map('map', { zoomControl:true, attributionControl:false }).setView(DEFAULT_CENTER, 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+  routeLayer = L.layerGroup().addTo(map);
+  refreshMap();
+}
+function mkIcon(cls, label){
+  return L.divIcon({ className:'', html:'<div class="mk '+cls+'">'+(label||'')+'</div>', iconSize:[28,28], iconAnchor:[14,14] });
+}
+function refreshMap(){
+  if(!map || !markerLayer) return;
+  markerLayer.clearLayers();
+  if(HOSPITAL.lat != null){
+    L.marker([HOSPITAL.lat, HOSPITAL.lng], { icon: mkIcon('hosp','H') })
+      .bindPopup('<b>'+HOSPITAL.name+'</b><br>Receiving hospital').addTo(markerLayer);
+  }
+  const sel = getSelected();
+  if(sel && sel.latitude != null && sel.longitude != null){
+    L.marker([sel.latitude, sel.longitude], { icon: mkIcon('pat','P') })
+      .bindPopup('<b>'+safe(sel.name||'Patient')+'</b><br>Incident: '+safe(sel.incident_id)).addTo(markerLayer);
+  }
+  AMBULANCES.forEach(a => {
+    if(a.lat != null && a.lng != null){
+      const cls = a.status==='dispatched' ? 'amb dispatched' : 'amb';
+      L.marker([a.lat, a.lng], { icon: mkIcon(cls,'A') })
+        .bindPopup('<b>'+a.name+'</b><br>'+a.hospital+'<br>Status: '+a.status).addTo(markerLayer);
+    }
+  });
+  if(sel && sel.latitude != null && sel.longitude != null){
+    const pts = [[sel.latitude, sel.longitude]];
+    AMBULANCES.forEach(a => { if(a.lat != null) pts.push([a.lat, a.lng]); });
+    if(HOSPITAL.lat != null) pts.push([HOSPITAL.lat, HOSPITAL.lng]);
+    try { map.fitBounds(L.latLngBounds(pts).pad(0.25)); } catch(_) {}
+  }
+  renderDispatchList();
+}
+function renderDispatchList(){
+  const list = document.getElementById('dispatchList');
+  const sel = getSelected();
+  if(!sel || sel.latitude == null || sel.longitude == null){
+    list.innerHTML = '<div style="padding:6px 0;font-size:11px;color:#7b879a">No location for the selected incident.</div>';
+    return;
+  }
+  list.innerHTML = AMBULANCES.map(a => {
+    const dist = (a.lat != null) ? haversineKm(sel.latitude, sel.longitude, a.lat, a.lng) : null;
+    const eta = dist != null ? Math.max(2, Math.round(dist*2)) : null;
+    const dis = a.status==='dispatched';
+    return '<div class="dispatch-row">' +
+      '<div class="avatar">'+a.id.slice(-2)+'</div>' +
+      '<div class="info"><strong>'+a.name+'</strong>' +
+        '<small>'+a.hospital+(dist!=null?' · '+dist.toFixed(1)+' km · ~'+eta+' min':'')+'</small></div>' +
+      '<div class="dist">'+(dis?'Dispatched':'')+'</div>' +
+      '<button '+(dis?'disabled':'')+' onclick="dispatchAmbulance(\''+a.id+'\')">' +
+        '<svg><use href="#i-ambulance"/></svg>'+(dis?'On the way':'Dispatch')+'</button>' +
+    '</div>';
+  }).join('');
+}
+function placeAmbulancesAround(inc){
+  if(inc.latitude == null || inc.longitude == null) return;
+  HOSPITAL.lat = inc.latitude + 0.010;
+  HOSPITAL.lng = inc.longitude + 0.010;
+  const offsets = [[0.014,0.012],[0.020,-0.008],[-0.010,0.018],[0.008,-0.018],[-0.016,-0.014]];
+  AMBULANCES.forEach((a,i) => { a.status='idle'; a.lat=inc.latitude+offsets[i][0]; a.lng=inc.longitude+offsets[i][1]; });
+}
+function haversineKm(lat1,lng1,lat2,lng2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function dispatchAmbulance(ambId){
+  const sel = getSelected();
+  if(!sel || sel.latitude == null) return;
+  const amb = AMBULANCES.find(a => a.id===ambId);
+  if(!amb) return;
+  amb.status = 'dispatched';
+  showToast(amb.name+' dispatched to '+sel.incident_id+'.');
+  updateStatus(sel.incident_id, 'Dispatched');
+  if(map && routeLayer){
+    routeLayer.clearLayers();
+    const line = L.polyline([[amb.lat,amb.lng],[sel.latitude,sel.longitude]],
+      { color:'#16a34a', weight:4, opacity:.75, dashArray:'8 6' }).addTo(routeLayer);
+    map.fitBounds(line.getBounds().pad(0.3));
+  }
+  refreshMap();
+}
+
+async function updateStatus(id, status){
+  if(!authHeader) return;
+  const cur = incidents.find(i => i.incident_id===id);
+  const prev = cur ? cur.status : null;
+  if(cur){ cur.status = status; renderAll(); }
+  try {
+    const r = await fetch(API_BASE + '/api/incidents/' + encodeURIComponent(id), {
+      method:'PATCH',
+      headers:{ 'Content-Type':'application/json', 'Authorization': authHeader },
+      body: JSON.stringify({ status })
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data = await r.json();
+    const i = incidents.findIndex(x => x.incident_id===id);
+    if(i !== -1) incidents[i] = data.incident;
+    renderAll(); refreshMap();
+  } catch(e){
+    if(cur && prev){ cur.status = prev; renderAll(); }
+  }
+}
+
+function renderAll(){ renderTable(); renderPatient(); renderStats(); renderDispatchList(); }
+function renderTable(){
+  document.getElementById('alertCount').textContent = incidents.length;
+  const tbody = document.getElementById('alertRows');
+  if(!incidents.length){
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><strong>No emergency alerts</strong>When a bystander presses SOS, the alert will appear here.</div></td></tr>';
+  } else {
+    tbody.innerHTML = incidents.map(i =>
+      '<tr class="'+(i.incident_id===selectedId?'selected':'')+'" onclick="selectIncident(\''+i.incident_id+'\')">' +
+        '<td><strong>'+safe(i.name||'Unknown patient')+'</strong><br><small style="color:#7b879a">'+safe(i.incident_id)+(i.age?' · '+safe(i.age)+' yrs':'')+'</small></td>' +
+        '<td>'+(i.blood?'<span style="color:#cf343b;font-weight:800">'+safe(i.blood)+'</span>':'—')+'</td>' +
+        '<td>'+safe((i.conditions||i.other_info||'Emergency SOS').slice(0,50))+'</td>' +
+        '<td><span class="status '+String(i.status).replace(/\s+/g,'-')+'">'+safe(i.status)+'</span></td>' +
+      '</tr>'
+    ).join('');
+  }
+  document.getElementById('tableCount').textContent = 'Showing '+incidents.length+' incident'+(incidents.length===1?'':'s');
+}
+function renderStats(){
+  document.getElementById('newCount').textContent = incidents.filter(i => i.status==='New').length;
+  document.getElementById('activeCount').textContent = incidents.filter(i => i.status==='Acknowledged'||i.status==='In Progress'||i.status==='Dispatched').length;
+  document.getElementById('resolvedCount').textContent = incidents.filter(i => i.status==='Resolved').length;
+}
+function renderPatient(){
+  const i = incidents.find(x => x.incident_id===selectedId);
+  const c = document.getElementById('patientDetails');
+  if(!i){ c.innerHTML='<p class="empty">Select an alert to view patient details.</p>'; return; }
+  c.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' +
+      '<div class="detail"><label>Full Name</label><div>'+safe(i.name)+'</div></div>' +
+      '<div class="detail"><label>Blood Group</label><div style="color:#cf343b;font-weight:800;font-size:16px">'+safe(i.blood)+'</div></div>' +
+      '<div class="detail"><label>Age</label><div>'+(i.age?safe(i.age)+' years':'Not provided')+'</div></div>' +
+      '<div class="detail"><label>Incident ID</label><div>'+safe(i.incident_id)+'</div></div>' +
+      '<div class="detail" style="grid-column:1/-1"><label>Allergies</label><div>'+(i.allergies?safe(i.allergies):'Not provided')+'</div></div>' +
+      '<div class="detail" style="grid-column:1/-1"><label>Conditions</label><div>'+(i.conditions?safe(i.conditions):'Not provided')+'</div></div>' +
+      '<div class="detail" style="grid-column:1/-1"><label>Medications</label><div>'+(i.medications?safe(i.medications):'Not provided')+'</div></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#356ae6;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'Acknowledged\')">Acknowledge</button>' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#f59e0b;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'In Progress\')">In Progress</button>' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#e9eef6;color:#263850;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'Resolved\')">Resolve</button>' +
+    '</div>';
+}
+function selectIncident(id){ selectedId = id; renderAll(); refreshMap(); }
+function getSelected(){ return incidents.find(i => i.incident_id===selectedId) || null; }
+function safe(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+let toastTimeout;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+(async function boot(){
+  if(loadAuth()){
+    hideLogin();
+    await fetchIncidents();
+    firstFetchDone = true;
+    initMap();
+    startSSE();
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>
