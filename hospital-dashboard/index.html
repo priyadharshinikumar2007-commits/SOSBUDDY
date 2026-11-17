@@ -305,39 +305,38 @@ let selectedId = null;
 let authHeader = null;
 let currentPopupIncidentId = null;
 
+// --- AUDIO SETUP ---
+let alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+
+// Page-la oru click panna, sound unlock aagum (Browser policy)
+document.addEventListener('click', function unlockAudio() {
+    alertSound.play().then(() => {
+        alertSound.pause();
+        alertSound.currentTime = 0;
+    }).catch(() => {});
+    document.removeEventListener('click', unlockAudio);
+});
+
 // --- SOCKET.IO SETUP ---
 const socket = io(API_BASE);
 socket.on('connect', () => {
     console.log('Socket connected for real-time alerts');
-    socket.emit('join_hospital', { hospital_id: 'default' }); 
 });
-
-// --- AUDIO SETUP ---
-let audioCtx = null;
-let soundEnabled = false;
-
-function playSiren() {
-    if(!soundEnabled || !audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-    osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.4);
-    osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.8);
-    gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 1.2);
-}
 
 // --- LISTEN FOR REAL-TIME EMERGENCIES ---
 socket.on("new_emergency", (data) => {
-    playSiren();
+    // 1. Sound play pannunga
+    alertSound.play().catch(e => console.log('Browser blocked sound:', e));
     
+    // 2. Data-a correct-a format pannunga
     const newInc = {
         incident_id: data.incidentId,
         name: data.patientName,
         age: data.age,
+        blood: data.blood || 'N/A',
+        allergies: data.allergies || 'None reported',
+        conditions: data.conditions || 'None reported',
+        medications: data.medications || 'None reported',
         scanTime: data.scanTime,
         location: data.location,
         status: 'NEW',
@@ -351,6 +350,47 @@ socket.on("new_emergency", (data) => {
     showPopup(newInc);
 });
 
+function showPopup(inc) {
+  currentPopupIncidentId = inc.incident_id;
+  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
+  const locationText = inc.location && inc.location.text ? inc.location.text : 'Not provided';
+
+  // Main popup body-a update pannunga
+  document.getElementById('popupBody').innerHTML =
+    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
+    '<div class="popup-row"><span>Patient Name</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
+    '<div class="popup-row"><span>Date of Birth</span><span>'+(inc.dob ? safe(inc.dob) : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span style="color:#dc2626">Blood Group</span><span style="color:#dc2626;font-weight:800">'+safe(inc.blood||'N/A')+'</span></div>' +
+    '<div class="popup-row"><span>Allergies</span><span>'+safe(inc.allergies||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Medical Conditions</span><span>'+safe(inc.conditions||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Medications</span><span>'+safe(inc.medications||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
+    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+'</span></div>';
+  
+  document.getElementById('popupOverlay').classList.add('show');
+}
+
+function closePopup(){
+  document.getElementById('popupOverlay').classList.remove('show');
+  currentPopupIncidentId = null;
+}
+function popupView(){
+  if(currentPopupIncidentId){
+    selectedId = currentPopupIncidentId;
+    closePopup(); renderAll(); refreshMap();
+    document.getElementById('patientDetails').scrollIntoView({ behavior:'smooth' });
+  }
+}
+function popupAcknowledge(){
+  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'ACKNOWLEDGED'); closePopup(); }
+}
+document.getElementById('popupOverlay').addEventListener('click', e => {
+  if(e.target.id === 'popupOverlay') closePopup();
+});
+
+
+// --- APPLICATION LOGIC ---
 const SAMPLE_INCIDENTS = [
   {
     incident_id: 'SAMPLE-0001',
@@ -565,45 +605,9 @@ function handleSSE(chunk){
     if(!selectedId) selectedId = payload.incident_id;
     renderAll();
     refreshMap();
-    if (!soundEnabled) showPopup(payload); 
+    // Ithu socket.io already handle pannudhu, so SSE la popup vendaam
   }
 }
-
-function showPopup(inc){
-  currentPopupIncidentId = inc.incident_id;
-  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
-  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
-  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
-  const sourceLabel = inc.location ? inc.location.source : 'unknown';
-
-  document.getElementById('popupBody').innerHTML =
-    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
-    '<div class="popup-row"><span>Patient</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
-    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
-    '<div class="popup-row"><span>Verified Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
-    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
-  
-  document.getElementById('popupOverlay').classList.add('show');
-}
-
-function closePopup(){
-  document.getElementById('popupOverlay').classList.remove('show');
-  currentPopupIncidentId = null;
-}
-function popupView(){
-  if(currentPopupIncidentId){
-    selectedId = currentPopupIncidentId;
-    closePopup(); renderAll(); refreshMap();
-    document.getElementById('patientDetails').scrollIntoView({ behavior:'smooth' });
-  }
-}
-function popupAcknowledge(){
-  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'ACKNOWLEDGED'); closePopup(); }
-}
-document.getElementById('popupOverlay').addEventListener('click', e => {
-  if(e.target.id === 'popupOverlay') closePopup();
-});
 
 function initMap(){
   if(map) return;
@@ -767,15 +771,6 @@ function showToast(msg){
 }
 
 (async function boot(){
-  // Auto-enable sound on first click anywhere on the page
-  document.addEventListener('click', () => {
-    if(!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    soundEnabled = true;
-  }, { once: true });
-
   if(loadAuth()){
     hideLogin();
     await fetchIncidents();
@@ -786,55 +781,6 @@ function showToast(msg){
     showLogin();
   }
 })();
-
-// ============================================================
-// SOCKET.IO REAL-TIME ALERT & SOUND
-// ============================================================
-// (Ithu unga backend-oda connect aagum)
-const socket = io('https://sos-backend-production-0e25.up.railway.app');
-
-// Oru alarm sound URL (Neenga unga ishtam pola maathikalam)
-const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-
-socket.on('new_emergency', (data) => {
-    console.log('🚨 NEW EMERGENCY ALERT:', data);
-    
-    // 1. Sound play pannunga (Browser block panna try/catch use pannunga)
-    alertSound.play().then(() => {
-        console.log('Sound played');
-    }).catch(e => {
-        console.log('Browser blocked sound. User must click first.', e);
-    });
-
-    // 2. Popup kaattunga
-    // (Unga dashboard la epdi UI irukko adhuku etha maadhiri indha popup-a maathikonga)
-    alert(`
-🚨 EMERGENCY ALERT! 🚨
-
-Patient: ${data.patientName}
-Age: ${data.age}
-Time: ${new Date(data.scanTime).toLocaleTimeString()}
-Location: ${data.location.text || 'Unavailable'}
-    `);
-
-    // 3. Ithu unga dashboard la incident list-a update panna, unga existing function-a call pannunga
-    // Example: fetchIncidents(); 
-});
-
-// ============================================================
-// PAGE LOAD AANA ODANE SOUND-A UNLOCK PANNUNGA
-// ============================================================
-// Browsers (Chrome, Safari) automatic-a sound play panna vidathu. 
-// User page la click pannina thaan sound play aagum.
-// Adhanaala, page load aana odane oru click event-a trigger pannunga.
-document.addEventListener('click', function unlockAudio() {
-    alertSound.play().then(() => {
-        alertSound.pause();
-        alertSound.currentTime = 0;
-        console.log('Audio unlocked');
-    }).catch(() => {});
-    document.removeEventListener('click', unlockAudio);
-});
 </script>
 </body>
 </html>

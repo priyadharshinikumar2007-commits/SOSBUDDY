@@ -166,11 +166,9 @@ async function startServer() {
   // ==========================================
   // STATIC FILE SERVING & ROUTING FIXES
   // ==========================================
-  // Serve the frontend directories from inside the sos-backend folder
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  // The Root URL goes to the SOS Buddy user page
   app.get('/', (req, res) => {
     res.redirect('/sosbuddy/index.html');
   });
@@ -262,10 +260,16 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
+      // === Ithu thaan main change: Ellamey anuppu ===
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
+        dob: row.dob,
         age: row.age,
+        blood: row.blood,
+        allergies: row.allergies,
+        conditions: row.conditions,
+        medications: row.medications,
         scanTime: now,
         location: {
             source: row.location_source,
@@ -278,7 +282,6 @@ async function startServer() {
 
       broadcast('incident', json);
 
-      // Send the Bystander UI directly
       res.send(`
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
               <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
@@ -310,7 +313,6 @@ async function startServer() {
   });
 
   app.post('/api/profiles', requireApiKey, (req, res) => {
-    // ... (Same as your existing code)
     try {
       const b = req.body || {};
       let profileId = sanitizeStr(b.profile_id, 60);
@@ -388,48 +390,3 @@ async function startServer() {
 }
 
 startServer().catch(err => { console.error('Fatal:', err); process.exit(1); });
-
-// server.js la kadaisiya paste pannunga
-app.get('/api/scan/:token', async (req, res) => {
-  const token = req.params.token;
-  
-  try {
-    // 1. Database la profile-a thedu
-    // (Unga backend la epdi DB irukko adhuku etha maadhiri ithu irukkanum)
-    // Example: const profile = db.prepare('SELECT * FROM profiles WHERE profile_id = ?').get(token);
-    
-    // 2. Hospital Dashboard ku theriyara maadhiri oru alert-a save pannunga
-    // Ithu unga incidents.db la save aagum
-    const incident = {
-      id: 'INC-' + Date.now(),
-      profile_id: token,
-      type: 'QR_SCAN',
-      status: 'ACTIVE',
-      message: 'Bystander scanned Emergency QR!',
-      created_at: new Date().toISOString()
-    };
-    
-    // (Unga DB la insert panna code inga varum)
-    // Example: db.prepare('INSERT INTO incidents ...').run(...);
-    
-    // 3. Bystander-ku "Alert Sent" nu kaattu
-    res.send(`
-      <html>
-        <head>
-          <title>Emergency Alert Sent</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            body { font-family: sans-serif; text-align: center; padding: 50px; background: #f8fafc; color: #0f172a; }
-            h1 { color: #dc2626; }
-          </style>
-        </head>
-        <body>
-          <h1>Emergency Alert Sent Successfully!</h1>
-          <p>Hospital authorities have been notified. Please stay with the patient.</p>
-        </body>
-      </html>
-    `);
-  } catch (err) {
-    res.status(500).send('Error: ' + err.message);
-  }
-});
