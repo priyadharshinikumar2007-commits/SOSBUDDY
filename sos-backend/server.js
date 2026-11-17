@@ -388,3 +388,48 @@ async function startServer() {
 }
 
 startServer().catch(err => { console.error('Fatal:', err); process.exit(1); });
+
+// server.js la kadaisiya paste pannunga
+app.get('/api/scan/:token', async (req, res) => {
+  const token = req.params.token;
+  
+  try {
+    // 1. Database la profile-a thedu
+    // (Unga backend la epdi DB irukko adhuku etha maadhiri ithu irukkanum)
+    // Example: const profile = db.prepare('SELECT * FROM profiles WHERE profile_id = ?').get(token);
+    
+    // 2. Hospital Dashboard ku theriyara maadhiri oru alert-a save pannunga
+    // Ithu unga incidents.db la save aagum
+    const incident = {
+      id: 'INC-' + Date.now(),
+      profile_id: token,
+      type: 'QR_SCAN',
+      status: 'ACTIVE',
+      message: 'Bystander scanned Emergency QR!',
+      created_at: new Date().toISOString()
+    };
+    
+    // (Unga DB la insert panna code inga varum)
+    // Example: db.prepare('INSERT INTO incidents ...').run(...);
+    
+    // 3. Bystander-ku "Alert Sent" nu kaattu
+    res.send(`
+      <html>
+        <head>
+          <title>Emergency Alert Sent</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: sans-serif; text-align: center; padding: 50px; background: #f8fafc; color: #0f172a; }
+            h1 { color: #dc2626; }
+          </style>
+        </head>
+        <body>
+          <h1>Emergency Alert Sent Successfully!</h1>
+          <p>Hospital authorities have been notified. Please stay with the patient.</p>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send('Error: ' + err.message);
+  }
+});

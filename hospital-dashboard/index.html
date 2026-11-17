@@ -786,6 +786,55 @@ function showToast(msg){
     showLogin();
   }
 })();
+
+// ============================================================
+// SOCKET.IO REAL-TIME ALERT & SOUND
+// ============================================================
+// (Ithu unga backend-oda connect aagum)
+const socket = io('https://sos-backend-production-0e25.up.railway.app');
+
+// Oru alarm sound URL (Neenga unga ishtam pola maathikalam)
+const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+
+socket.on('new_emergency', (data) => {
+    console.log('🚨 NEW EMERGENCY ALERT:', data);
+    
+    // 1. Sound play pannunga (Browser block panna try/catch use pannunga)
+    alertSound.play().then(() => {
+        console.log('Sound played');
+    }).catch(e => {
+        console.log('Browser blocked sound. User must click first.', e);
+    });
+
+    // 2. Popup kaattunga
+    // (Unga dashboard la epdi UI irukko adhuku etha maadhiri indha popup-a maathikonga)
+    alert(`
+🚨 EMERGENCY ALERT! 🚨
+
+Patient: ${data.patientName}
+Age: ${data.age}
+Time: ${new Date(data.scanTime).toLocaleTimeString()}
+Location: ${data.location.text || 'Unavailable'}
+    `);
+
+    // 3. Ithu unga dashboard la incident list-a update panna, unga existing function-a call pannunga
+    // Example: fetchIncidents(); 
+});
+
+// ============================================================
+// PAGE LOAD AANA ODANE SOUND-A UNLOCK PANNUNGA
+// ============================================================
+// Browsers (Chrome, Safari) automatic-a sound play panna vidathu. 
+// User page la click pannina thaan sound play aagum.
+// Adhanaala, page load aana odane oru click event-a trigger pannunga.
+document.addEventListener('click', function unlockAudio() {
+    alertSound.play().then(() => {
+        alertSound.pause();
+        alertSound.currentTime = 0;
+        console.log('Audio unlocked');
+    }).catch(() => {});
+    document.removeEventListener('click', unlockAudio);
+});
 </script>
 </body>
 </html>

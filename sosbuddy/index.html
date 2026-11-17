@@ -974,6 +974,12 @@ function showSOSChoiceModal(){
   document.body.appendChild(modal);
 }
 
+function buildQRPayload(){
+  // Unga Railway URL-a inga kuduthuruken
+  const base = 'https://sos-backend-production-0e25.up.railway.app';
+  return base + '/api/scan/' + encodeURIComponent(getProfileId());
+}
+
 const app={
   navigateTo(page){
     if(currentPage==='qr'&&page!=='qr')stopScanner();
