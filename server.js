@@ -163,21 +163,18 @@ async function startServer() {
 
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
-  // Change these strings if your folder names are different!
-app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
-app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
 
-app.get('/', (req, res) => {
-  res.redirect('/hospital-dashboard/index.html');
-});
-
-
+  // ==========================================
+  // STATIC FILE SERVING
+  // ==========================================
+  // Serve the frontend directories
+  app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
 
   // Redirect the root URL to the hospital dashboard automatically
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
   });
-  // ==========================================
 
   const sseClients = new Set();
   function broadcast(event, data) {
@@ -398,10 +395,3 @@ app.get('/', (req, res) => {
 }
 
 startServer().catch(err => { console.error('Fatal:', err); process.exit(1); });
-  // Change these strings if your folder names are different!
-  app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
-  app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
-
-  app.get('/', (req, res) => {
-    res.redirect('/hospital-dashboard/index.html');
-  });
