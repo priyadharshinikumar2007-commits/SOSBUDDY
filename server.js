@@ -196,36 +196,31 @@ async function startServer() {
   // ==========================================
   // AUTOMATIC QR SCAN ENDPOINT
   // ==========================================
- app.get('/api/scan/:token', (req, res) => {
+  app.get('/api/scan/:token', (req, res) => {
     try {
       const rawToken = req.params.token;
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-      // Token-a DB la thedu
       const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      
-      // Token illa na, direct-a profile ID-ya treat panni paaru (For old QR codes)
       let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
 
-      // Patient-a thedu
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
       
       if (!latestProfile) {
-        // Patient illa na, oru dummy profile create panni save pannunga, appo error varaadhu
         latestProfile = { 
             name: 'Unknown Patient', dob: '', blood: '', 
             allergies: '', conditions: '', medications: '', other_info: '' 
         };
-        const now = nowIso();
-        // DB la save pannunga (Optional)
-        // db.prepare(`INSERT INTO patients ...`).run(...);
       }
 
       const id = nextIncidentId();
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
-      const lat = null; 
-      const lng = null; 
+      
+      // Dummy location for map and ambulance dispatch (Chennai)
+      const lat = 13.0827; 
+      const lng = 80.2707; 
+      
       const locationText = 'Registered Address Unavailable';
 
       const row = {
@@ -256,7 +251,6 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      // Hospital Dashboard-ku anuppu
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
@@ -272,7 +266,6 @@ async function startServer() {
 
       broadcast('incident', json);
 
-      // Bystander-ku Alert Sent page-a kaattu
       res.send(`
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
               <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
@@ -282,75 +275,7 @@ async function startServer() {
       `);
     } catch (err) {
       console.error('QR Scan Error:', err);
-      res.status(500).send('Server error: ' + err.message); // Error-a exact-a kaattu
-    }
-  });
-
-      let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
-
-      const id = nextIncidentId();
-      const now = nowIso();
-      const age = computeAge(latestProfile.dob);
-      const lat = null; 
-      const lng = null; 
-      const locationText = latestProfile.address || 'Registered Address Unavailable';
-
-      const row = {
-        incident_id: id, profile_id: profileId, 
-        name: latestProfile.name || 'Unknown', dob: latestProfile.dob || '', age: age,
-        blood: latestProfile.blood || '', allergies: latestProfile.allergies || '',
-        conditions: latestProfile.conditions || '', medications: latestProfile.medications || '',
-        other_info: latestProfile.other_info || '',
-        latitude: lat, longitude: lng,
-        status: 'NEW', created_at: now, updated_at: now,
-        source: 'qr-scan',
-        location_source: 'victim_registered',
-        location_owner: 'victim',
-        delivery_status: 'DELIVERED'
-      };
-
-      db.prepare(`INSERT INTO incidents (
-        incident_id, profile_id, name, dob, age, blood, allergies,
-        conditions, medications, other_info, latitude, longitude,
-        status, created_at, updated_at, source, location_source, location_owner, delivery_status
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run([
-        row.incident_id, row.profile_id, row.name, row.dob, row.age,
-        row.blood, row.allergies, row.conditions, row.medications, row.other_info,
-        row.latitude, row.longitude, row.status, row.created_at, row.updated_at,
-        row.source, row.location_source, row.location_owner, row.delivery_status
-      ]);
-      persistDb();
-
-      const json = incidentRowToJson(row);
-
-      io.emit("new_emergency", {
-        incidentId: id,
-        patientName: row.name,
-        age: row.age,
-        scanTime: now,
-        location: {
-            source: row.location_source,
-            owner: row.location_owner,
-            text: locationText,
-            lat: lat,
-            lng: lng
-        }
-      });
-
-      broadcast('incident', json);
-
-      res.send(`
-          <div style="font-family:sans-serif; text-align:center; padding:50px;">
-              <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
-              <p>The registered hospital has been notified.</p>
-              <p>Thank you for helping. Your action may save a life.</p>
-              <p><strong>Incident ID:</strong> ${id}</p>
-          </div>
-      `);
-    } catch (err) {
-      console.error('QR Scan Error:', err);
-      res.status(500).send('Server error');
+      res.status(500).send('Server error: ' + err.message);
     }
   });
 
