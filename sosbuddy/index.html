@@ -990,7 +990,7 @@ async function buildQRPayload(){
   return SOS_API_BASE + '/api/scan/' + encodeURIComponent(profileId);
 }
 
-const app={
+const app = {
   navigateTo(page){
     if(currentPage==='qr'&&page!=='qr')stopScanner();
     currentPage=page;activeTab='health';
@@ -1080,90 +1080,96 @@ const app={
     });
   },
 
-  async triggerSOS(type){
-    document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
+  async triggerSOS(sosType){
+    const status=document.getElementById('sosStatus');
+    if(status){ status.textContent = 'Sending SOS...'; status.style.color = 'var(--text-secondary)'; }
     
-    // Save user's current location for the hospital dashboard
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        try {
-          const profile = getHealthProfile() || {};
-          const body = {
-            profile_id: getProfileId(),
-            name: profile.name || 'Unknown',
-            dob: profile.dob || '',
-            blood: profile.bloodGroup || '',
-            allergies: profile.allergies || '',
-            conditions: profile.medicalConditions || '',
-            medications: profile.medications || '',
-            latitude: lat,
-            longitude: lng,
-            source: type
-          };
-          await fetch(SOS_API_BASE + '/api/incidents', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': SOS_API_KEY
-            },
-            body: JSON.stringify(body)
-          });
-        } catch (err) {
-          console.error('SOS failed:', err);
-        }
+    try {
+      // 1. Get Location
+      const position = await new Promise((resolve, reject) => {
+        if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:10000 });
+      });
 
-        const incidentId = 'SOS-' + Date.now().toString().slice(-6);
-        const newIncident = {
-          incidentId: incidentId,
-          sosType: type,
-          typeLabel: type === 'security' ? 'Security Emergency' : 'Health Emergency',
-          status: 'ACTIVE',
-          createdAtFull: new Date().toISOString(),
-          latitude: lat,
-          longitude: lng,
-          emergencyContact: getEmergencyContacts()[0]?.phone || '--'
-        };
-        saveActiveIncident(newIncident);
-        addToHistory(newIncident);
-        window.__app.navigateTo('emergency');
-      },
-      (error) => {
-        alert('Unable to get your location. Please enable GPS/location permissions for this browser.');
-        console.error('GPS Error:', error);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+      const profile = getHealthProfile() || {};
+      const incidentId = 'INC-' + Date.now().toString(36).toUpperCase();
+      
+      // 2. Send to Backend
+      const payload = {
+        incident_id: incidentId,
+        profile_id: getProfileId(),
+        sos_type: sosType,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        name: profile.name || 'Unknown',
+        blood: profile.bloodGroup || '',
+        allergies: profile.allergies || '',
+        conditions: profile.medicalConditions || '',
+        medications: profile.medications || ''
+      };
+
+      const res = await fetch(SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId()), {
+        method:'GET'
+      });
+      
+      // 3. Save local incident
+      const incident = {
+        incidentId,
+        sosType,
+        typeLabel: sosType === 'security' ? 'Security Emergency' : 'Health Emergency',
+        status:'ACTIVE',
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        createdAtFull: new Date().toISOString(),
+        emergencyContact: (getEmergencyContacts()[0] || {}).phone || '--',
+        timeline: [
+          { status: sosType === 'security' ? 'Security Emergency Triggered' : 'Health Emergency Triggered', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Person Identified', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Location Confirmed', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Emergency Contact Notified', completed:false, time:'' },
+          { status:'Response Requested', completed:false, time:'' }
+        ]
+      };
+      saveActiveIncident(incident);
+      addToHistory(incident);
+      
+      // 4. Close modal and show Emergency Page
+      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
+      currentPage = 'emergency';
+      renderPage();
+
+    } catch(err) {
+      if(status){ status.textContent = 'SOS failed: ' + err.message; status.style.color = 'var(--bg-sos)'; }
+      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
+      alert('Could not send SOS: ' + err.message);
+    }
   },
 
   resolveIncident(){
     const inc = getActiveIncident();
-    if (inc) {
-      inc.status = 'RESOLVED';
-      saveActiveIncident(inc);
-      renderPage();
-      setTimeout(() => window.__app.navigateTo('home'), 2000);
-    }
+    if(!inc) return;
+    inc.status = 'RESOLVED';
+    inc.timeline = inc.timeline.map(t => ({...t, completed:true, time: t.time || new Date().toLocaleTimeString()}));
+    inc.timeline.push({ status:'Emergency Resolved', completed:true, time:new Date().toLocaleTimeString() });
+    saveActiveIncident(inc);
+    addToHistory(inc);
+    renderPage();
   },
 
-  viewIncident(id) {
-    const hist = getIncidentHistory();
-    const found = hist.find(x => x.incidentId === id);
-    if (found) {
-      if (found.status === 'RESOLVED') {
-        alert("This incident is already resolved.");
-        return;
-      }
-      saveActiveIncident(found);
-      window.__app.navigateTo('emergency');
-    }
+  viewIncident(incidentId){
+    const inc = getActiveIncident();
+    if(inc && inc.incidentId === incidentId){ currentPage = 'emergency'; renderPage(); return; }
+    const found = getIncidentHistory().find(i => i.incidentId === incidentId);
+    if(found){ saveActiveIncident(found); currentPage = 'emergency'; renderPage(); }
   }
 };
 
+// Helper function to build payload
+function buildQRPayload(){
+  return SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId());
+}
+
 window.__app = app;
-renderPage();
-window.addEventListener('popstate', () => { renderPage(); });
 </script>
 </body>
 </html>
