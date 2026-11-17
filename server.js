@@ -164,14 +164,15 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
 
-  // ==========================================
+   // ==========================================
   // STATIC FILE SERVING
   // ==========================================
-  // Serve the frontend directories
-   // Try absolute paths
-  app.use('/hospital-dashboard', express.static(path.resolve(__dirname, '../hospital-dashboard')));
-  app.use('/sosbuddy', express.static(path.resolve(__dirname, '../sosbuddy')));
+  app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
+  app.get('/', (req, res) => {
+    res.redirect('/hospital-dashboard/index.html');
+  });
   // Redirect the root URL to the hospital dashboard automatically
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
