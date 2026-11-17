@@ -168,8 +168,9 @@ async function startServer() {
   // STATIC FILE SERVING
   // ==========================================
   // Serve the frontend directories
-  app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
-  app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
+   // Try absolute paths
+  app.use('/hospital-dashboard', express.static(path.resolve(__dirname, '../hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.resolve(__dirname, '../sosbuddy')));
 
   // Redirect the root URL to the hospital dashboard automatically
   app.get('/', (req, res) => {
