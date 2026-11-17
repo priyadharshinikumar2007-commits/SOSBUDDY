@@ -974,10 +974,20 @@ function showSOSChoiceModal(){
   document.body.appendChild(modal);
 }
 
-function buildQRPayload(){
-  // Unga Railway URL-a inga kuduthuruken
-  const base = 'https://sos-backend-production-0e25.up.railway.app';
-  return base + '/api/scan/' + encodeURIComponent(getProfileId());
+async function buildQRPayload(){
+  const profileId = getProfileId();
+  try {
+    // Backend-ku call panni token generate pannunga
+    const res = await fetch(SOS_API_BASE + '/api/generate-qr/' + profileId);
+    const data = await res.json();
+    if(data.success && data.url) {
+      return data.url; // Ithu unga backend-oda scan URL
+    }
+  } catch(e) {
+    console.log("QR generation failed", e);
+  }
+  // Fallback (work aagalana, old URL-a use pannunga)
+  return SOS_API_BASE + '/api/scan/' + encodeURIComponent(profileId);
 }
 
 const app={
