@@ -6,6 +6,9 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const initSqlJs = require('sql.js');
+const http = require('http');
+const { Server } = require("socket.io");
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
 const SOS_API_KEY = process.env.SOS_API_KEY || 'dev-local-shared-key-change-me';
@@ -100,7 +103,10 @@ function incidentRowToJson(r) {
     other_info: r.other_info || '',
     latitude: r.latitude, longitude: r.longitude,
     status: r.status, created_at: r.created_at, updated_at: r.updated_at,
-    source: r.source || ''
+    source: r.source || '',
+    location_source: r.location_source || 'unavailable',
+    location_owner: r.location_owner || 'unknown',
+    delivery_status: r.delivery_status || 'DELIVERED'
   };
 }
 
@@ -115,6 +121,7 @@ async function startServer() {
     console.log('Created new DB:', DB_PATH);
   }
 
+  // Preserve existing tables and add new QR tokens table
   db.run(`
     CREATE TABLE IF NOT EXISTS patients (
       profile_id TEXT PRIMARY KEY, name TEXT, dob TEXT, blood TEXT,
@@ -128,18 +135,49 @@ async function startServer() {
       name TEXT, dob TEXT, age TEXT, blood TEXT,
       allergies TEXT, conditions TEXT, medications TEXT, other_info TEXT,
       latitude REAL, longitude REAL,
-      status TEXT NOT NULL DEFAULT 'New',
+      status TEXT NOT NULL DEFAULT 'NEW',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-      idempotency_key TEXT UNIQUE, source TEXT
+      idempotency_key TEXT UNIQUE, source TEXT,
+      location_source TEXT DEFAULT 'unavailable',
+      location_owner TEXT DEFAULT 'unknown',
+      delivery_status TEXT DEFAULT 'DELIVERED'
     );
   `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS qr_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id TEXT,
+      token_hash TEXT UNIQUE,
+      active BOOLEAN DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+  `);
+  
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_profile ON incidents(profile_id);`);
   persistDb();
 
   const app = express();
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: "*" } });
+
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
+  // Change these strings if your folder names are different!
+app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
+app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
+
+app.get('/', (req, res) => {
+  res.redirect('/hospital-dashboard/index.html');
+});
+
+
+
+  // Redirect the root URL to the hospital dashboard automatically
+  app.get('/', (req, res) => {
+    res.redirect('/hospital-dashboard/index.html');
+  });
+  // ==========================================
 
   const sseClients = new Set();
   function broadcast(event, data) {
@@ -161,6 +199,127 @@ async function startServer() {
     req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
   });
 
+  // ==========================================
+  // AUTOMATIC QR SCAN ENDPOINT
+  // ==========================================
+  app.get('/api/scan/:token', (req, res) => {
+    try {
+      const rawToken = req.params.token;
+      const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      // 1. Verify Token
+      const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
+      
+      // Fallback for testing if no tokens exist yet
+      let profileId = tokenRow ? tokenRow.profile_id : 'P-DEFAULT'; 
+
+      // 2. Deduplication (Prevent duplicate active incidents within 60 seconds)
+      const recent = queryOne(
+        `SELECT * FROM incidents 
+         WHERE profile_id = ? 
+         AND datetime(created_at) > datetime('now','-60 seconds')
+         AND status != 'RESOLVED' AND status != 'CLOSED'`, 
+        [profileId]
+      );
+
+      if (recent) {
+        return res.json({ 
+            success: true, 
+            incidentId: recent.incident_id, 
+            deliveryStatus: recent.delivery_status,
+            isDuplicate: true
+        });
+      }
+
+      // 3. Create Incident
+      let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
+      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
+
+      const id = nextIncidentId();
+      const now = nowIso();
+      const age = computeAge(latestProfile.dob);
+      
+      // Location rules: Fallback to victim's registered address, else Unavailable.
+      // NEVER request bystander GPS.
+      const lat = null; 
+      const lng = null; 
+      const locationText = latestProfile.address || 'Registered Address Unavailable';
+
+      const row = {
+        incident_id: id, profile_id: profileId, 
+        name: latestProfile.name || 'Unknown', dob: latestProfile.dob || '', age: age,
+        blood: latestProfile.blood || '', allergies: latestProfile.allergies || '',
+        conditions: latestProfile.conditions || '', medications: latestProfile.medications || '',
+        other_info: latestProfile.other_info || '',
+        latitude: lat, longitude: lng,
+        status: 'NEW', created_at: now, updated_at: now,
+        source: 'qr-scan',
+        location_source: 'victim_registered',
+        location_owner: 'victim',
+        delivery_status: 'DELIVERED'
+      };
+
+      db.prepare(`INSERT INTO incidents (
+        incident_id, profile_id, name, dob, age, blood, allergies,
+        conditions, medications, other_info, latitude, longitude,
+        status, created_at, updated_at, source, location_source, location_owner, delivery_status
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run([
+        row.incident_id, row.profile_id, row.name, row.dob, row.age,
+        row.blood, row.allergies, row.conditions, row.medications, row.other_info,
+        row.latitude, row.longitude, row.status, row.created_at, row.updated_at,
+        row.source, row.location_source, row.location_owner, row.delivery_status
+      ]);
+      persistDb();
+
+      const json = incidentRowToJson(row);
+
+      // 4. Notify Dashboard via Socket.IO
+      io.emit("new_emergency", {
+        incidentId: id,
+        patientName: row.name,
+        age: row.age,
+        scanTime: now,
+        location: {
+            source: row.location_source,
+            owner: row.location_owner,
+            text: locationText,
+            lat: lat,
+            lng: lng
+        }
+      });
+
+      // 5. Notify Dashboard via SSE (Fallback)
+      broadcast('incident', json);
+
+      res.json({ 
+        success: true, 
+        incidentId: id, 
+        deliveryStatus: 'DELIVERED' 
+      });
+    } catch (err) {
+      console.error('QR Scan Error:', err);
+      res.status(500).json({ success: false, error: 'Server error' });
+    }
+  });
+
+  // Helper to generate QR token (For testing)
+  app.get('/api/generate-qr/:profile_id', (req, res) => {
+    const profileId = req.params.profile_id;
+    const rawToken = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const now = nowIso();
+    
+    db.prepare(`INSERT INTO qr_tokens (profile_id, token_hash, created_at) VALUES (?,?,?)`).run([profileId, hash, now]);
+    persistDb();
+    
+    res.json({ 
+      success: true, 
+      url: `https://sos-backend-production-0e25.up.railway.app/api/scan/${rawToken}`,
+      token: rawToken
+    });
+  });
+
+  // Existing Profile APIs
   app.post('/api/profiles', requireApiKey, (req, res) => {
     try {
       const b = req.body || {};
@@ -197,13 +356,12 @@ async function startServer() {
       }
       persistDb();
       const saved = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      console.log(`[PROFILE] saved ${profileId} (${row.name})`);
       res.json({ ok: true, profile: profileRowToJson(saved) });
     } catch (err) {
-      console.error('POST /api/profiles failed:', err);
       res.status(500).json({ ok: false, error: 'Failed to save profile' });
     }
   });
+
   app.get('/api/profiles/:id', (req, res) => {
     const row = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [req.params.id]);
     if (!row) return res.status(404).json({ ok: false, error: 'Profile not found' });
@@ -211,75 +369,12 @@ async function startServer() {
     res.json({ ok: true, profile: profileRowToJson(row) });
   });
 
-  app.post('/api/incidents', requireApiKey, (req, res) => {
-    try {
-      const b = req.body || {};
-      const clientKey = sanitizeStr(b.idempotency_key, 120);
-      if (clientKey) {
-        const existing = queryOne(`SELECT * FROM incidents WHERE idempotency_key = ?`, [clientKey]);
-        if (existing) return res.json({ ok: true, incident: incidentRowToJson(existing), deduplicated: true });
-      }
-      const profileId = sanitizeStr(b.profile_id, 60);
-      let latestProfile = null;
-      if (profileId) {
-        latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-        const recent = queryOne(
-          `SELECT * FROM incidents WHERE profile_id = ?
-             AND status != 'Resolved'
-             AND datetime(created_at) > datetime('now','-10 minutes')
-           ORDER BY created_at DESC LIMIT 1`, [profileId]);
-        if (recent) return res.json({ ok: true, incident: incidentRowToJson(recent), deduplicated: true });
-      }
-      const id = nextIncidentId();
-      const now = nowIso();
-      const merged = latestProfile ? {
-        name: latestProfile.name || sanitizeStr(b.name, 120),
-        dob: latestProfile.dob || sanitizeStr(b.dob, 40),
-        blood: latestProfile.blood || sanitizeStr(b.blood, 20),
-        allergies: latestProfile.allergies || sanitizeStr(b.allergies, 500),
-        conditions: latestProfile.conditions || sanitizeStr(b.conditions, 500),
-        medications: latestProfile.medications || sanitizeStr(b.medications, 500),
-        other_info: latestProfile.other_info || sanitizeStr(b.other_info, 500)
-      } : {
-        name: sanitizeStr(b.name, 120), dob: sanitizeStr(b.dob, 40),
-        blood: sanitizeStr(b.blood, 20), allergies: sanitizeStr(b.allergies, 500),
-        conditions: sanitizeStr(b.conditions, 500), medications: sanitizeStr(b.medications, 500),
-        other_info: sanitizeStr(b.other_info, 500)
-      };
-      const row = {
-        incident_id: id, profile_id: profileId, ...merged,
-        age: computeAge(merged.dob),
-        latitude: Number.isFinite(+b.latitude) ? +b.latitude : null,
-        longitude: Number.isFinite(+b.longitude) ? +b.longitude : null,
-        status: 'New', created_at: now, updated_at: now,
-        idempotency_key: clientKey || null,
-        source: sanitizeStr(b.source, 40) || 'in-app'
-      };
-      db.prepare(`INSERT INTO incidents (
-        incident_id, profile_id, name, dob, age, blood, allergies,
-        conditions, medications, other_info, latitude, longitude,
-        status, created_at, updated_at, idempotency_key, source
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run([
-        row.incident_id, row.profile_id, row.name, row.dob, row.age,
-        row.blood, row.allergies, row.conditions, row.medications, row.other_info,
-        row.latitude, row.longitude, row.status, row.created_at, row.updated_at,
-        row.idempotency_key, row.source
-      ]);
-      persistDb();
-      const json = incidentRowToJson(row);
-      broadcast('incident', json);
-      console.log(`[SOS] ${id} — ${row.name || 'Unknown'} (source: ${row.source})`);
-      res.status(201).json({ ok: true, incident: json });
-    } catch (err) {
-      console.error('POST /api/incidents failed:', err);
-      res.status(500).json({ ok: false, error: 'Failed to create incident' });
-    }
-  });
   app.get('/api/incidents', requireStaff, (_req, res) => {
     const rows = queryAll(`SELECT * FROM incidents ORDER BY created_at DESC LIMIT 500`);
     res.json({ ok: true, incidents: rows.map(incidentRowToJson) });
   });
-  const ALLOWED = new Set(['New','Acknowledged','In Progress','Resolved','Dispatched']);
+
+  const ALLOWED = new Set(['NEW','ACKNOWLEDGED','IN PROGRESS','RESOLVED','CLOSED']);
   app.patch('/api/incidents/:id', requireStaff, (req, res) => {
     const { id } = req.params;
     const status = sanitizeStr(req.body?.status, 40);
@@ -293,12 +388,20 @@ async function startServer() {
     broadcast('incident-updated', json);
     res.json({ ok: true, incident: json });
   });
+
   app.get('/api/health', (_req, res) => res.json({ ok: true, time: nowIso() }));
 
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`SOS backend listening on http://localhost:${PORT}`);
     console.log(`DB file: ${DB_PATH}`);
   });
 }
 
 startServer().catch(err => { console.error('Fatal:', err); process.exit(1); });
+  // Change these strings if your folder names are different!
+  app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
+
+  app.get('/', (req, res) => {
+    res.redirect('/hospital-dashboard/index.html');
+  });

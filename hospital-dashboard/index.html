@@ -57,10 +57,10 @@ tbody tr:hover{background:#f5f8ff}
 tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 .empty{padding:30px;text-align:center;color:#94a3b8;font-size:13px}
 .status{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10.5px;font-weight:700}
-.status.New{background:#fff0f0;color:#cf343b}
-.status.Acknowledged{background:#eaf1ff;color:#315bc1}
-.status.In-Progress,.status.Dispatched{background:#fff2d9;color:#986307}
-.status.Resolved{background:#e5f8ef;color:#16815e}
+.status.NEW{background:#fff0f0;color:#cf343b}
+.status.ACKNOWLEDGED{background:#eaf1ff;color:#315bc1}
+.status.IN-PROGRESS,.status.Dispatched{background:#fff2d9;color:#986307}
+.status.RESOLVED{background:#e5f8ef;color:#16815e}
 .toast{position:fixed;bottom:20px;right:20px;background:#13233f;color:#fff;padding:13px 17px;
   border-radius:10px;display:none;max-width:340px;font-size:13px;z-index:10;
   box-shadow:0 10px 30px rgba(0,0,0,.25)}
@@ -197,6 +197,10 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
         <p class="subtitle">Monitor SOS alerts and patient medical information.</p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
+        <!-- Added Sound Button -->
+        <button id="enableSoundBtn" style="padding:0 12px;height:36px;border-radius:9px;background:#13233f;color:#fff;border:none;font-weight:700;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;">
+          🔊 Enable Emergency Sound
+        </button>
         <span class="conn" id="connBadge"><span class="dot"></span><span id="connText">Connecting…</span></span>
         <button class="icon-btn" title="Sign out" onclick="logout()"><svg><use href="#i-logout"/></svg></button>
       </div>
@@ -240,13 +244,14 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
   </main>
 </div>
 
+<!-- Main Popup -->
 <div class="popup-ov" id="popupOverlay">
   <div class="popup">
     <div class="popup-header">
       <div class="popup-header-icon"><svg><use href="#i-alert"/></svg></div>
       <div>
-        <h2>NEW EMERGENCY ALERT</h2>
-        <p>A new SOS has been received from SOS Buddy.</p>
+        <h2>NEW MEDICAL EMERGENCY</h2>
+        <p>A new SOS has been received via QR scan.</p>
       </div>
       <button class="popup-close-x" onclick="closePopup()"><svg><use href="#i-x"/></svg></button>
     </div>
@@ -290,8 +295,8 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 
 <div class="toast" id="toast"></div>
 
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
 const API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
@@ -304,12 +309,66 @@ let selectedId = null;
 let authHeader = null;
 let currentPopupIncidentId = null;
 
-/* ============================================================
-   SAMPLE RECORDS
-   These are demo incidents shown in the Emergency Alerts popup
-   and the Patient Records popup. Real SOS incidents appear
-   alongside them in the dashboard list.
-   ============================================================ */
+// --- SOCKET.IO SETUP ---
+const socket = io(API_BASE);
+socket.on('connect', () => {
+    console.log('Socket connected for real-time alerts');
+    socket.emit('join_hospital', { hospital_id: 'default' }); 
+});
+
+// --- AUDIO SETUP ---
+let audioCtx = null;
+let soundEnabled = false;
+
+document.getElementById('enableSoundBtn').addEventListener('click', async () => {
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await audioCtx.resume();
+        soundEnabled = true;
+        const btn = document.getElementById('enableSoundBtn');
+        btn.innerText = "🔊 Sound Enabled";
+        btn.style.background = "#16815e";
+        showToast("Emergency sound enabled successfully.");
+    } catch(e) {
+        showToast("Failed to enable audio. Please try again.");
+    }
+});
+
+function playSiren() {
+    if(!soundEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.4);
+    osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.8);
+    gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.2);
+}
+
+// --- LISTEN FOR REAL-TIME EMERGENCIES ---
+socket.on("new_emergency", (data) => {
+    playSiren();
+    
+    const newInc = {
+        incident_id: data.incidentId,
+        name: data.patientName,
+        age: data.age,
+        scanTime: data.scanTime,
+        location: data.location,
+        status: 'NEW',
+        created_at: new Date().toISOString()
+    };
+
+    if(incidents.some(i => i.incident_id === newInc.incident_id)) return;
+
+    incidents.unshift(newInc);
+    renderAll();
+    showPopup(newInc);
+});
+
 const SAMPLE_INCIDENTS = [
   {
     incident_id: 'SAMPLE-0001',
@@ -320,63 +379,24 @@ const SAMPLE_INCIDENTS = [
     conditions: 'Asthma',
     medications: 'Salbutamol inhaler (as needed)',
     other_info: 'Breathing difficulty reported at time of SOS.',
-    status: 'Acknowledged',
+    status: 'ACKNOWLEDGED',
     source: 'qr-scan',
     created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
     latitude: 13.0418,
     longitude: 80.2341
-  },
-  {
-    incident_id: 'SAMPLE-0002',
-    name: 'Rahul Menon',
-    age: '45',
-    blood: 'B+',
-    allergies: 'Not provided',
-    conditions: 'Hypertension',
-    medications: 'Amlodipine 5 mg once daily',
-    other_info: 'Road accident — suspected fractures.',
-    status: 'In Progress',
-    source: 'in-app',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    latitude: 13.0012,
-    longitude: 80.2570
-  },
-  {
-    incident_id: 'SAMPLE-0003',
-    name: 'Meera Krishnan',
-    age: '63',
-    blood: 'A-',
-    allergies: 'Sulfa drugs',
-    conditions: 'Type 2 diabetes',
-    medications: 'Metformin 500 mg twice daily',
-    other_info: 'Chest discomfort reported.',
-    status: 'Resolved',
-    source: 'qr-scan',
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    latitude: 12.9791,
-    longitude: 80.2204
   }
 ];
 
-/* ============================================================
-   EMERGENCY ALERTS POPUP
-   ============================================================ */
 function openAlertsPopup(){
-  // Combine real incidents with sample incidents, sort newest first
   const all = [...incidents, ...SAMPLE_INCIDENTS]
     .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
-
   const body = document.getElementById('alertsPopupBody');
-
   if(!all.length){
     body.innerHTML = '<div class="empty">No alerts yet.</div>';
   } else {
     body.innerHTML = all.map(i => {
       const isSample = i.incident_id.startsWith('SAMPLE-');
-      const isActive = i.status === 'Acknowledged' || i.status === 'In Progress' || i.status === 'Dispatched' || i.status === 'New';
-      const dateStr = i.created_at
-        ? new Date(i.created_at).toLocaleString()
-        : '—';
+      const dateStr = i.created_at ? new Date(i.created_at).toLocaleString() : '—';
       return (
         '<div class="dispatch-row" style="align-items:flex-start;padding:14px;margin-bottom:10px;cursor:pointer" ' +
           'onclick="' + (isSample ? 'alert(\'Sample record — ' + safe(i.incident_id) + '\\nPatient: ' + safe(i.name) + '\\nStatus: ' + safe(i.status) + '\')' : 'closeAlertsPopup();selectIncident(\'' + i.incident_id + '\')') + '">' +
@@ -396,35 +416,22 @@ function openAlertsPopup(){
       );
     }).join('');
   }
-
   document.getElementById('alertsPopupOverlay').classList.add('show');
 }
-function closeAlertsPopup(){
-  document.getElementById('alertsPopupOverlay').classList.remove('show');
-}
+function closeAlertsPopup(){ document.getElementById('alertsPopupOverlay').classList.remove('show'); }
 document.getElementById('alertsPopupOverlay').addEventListener('click', e => {
   if(e.target.id === 'alertsPopupOverlay') closeAlertsPopup();
 });
 
-/* ============================================================
-   PATIENT RECORDS POPUP
-   ============================================================ */
 function openPatientRecordsPopup(){
   const all = [...incidents, ...SAMPLE_INCIDENTS]
     .sort((a,b) => (b.created_at||'').localeCompare(a.created_at||''));
-
-  // De-duplicate by name so each patient appears once
-  const seen = new Set();
-  const unique = [];
+  const seen = new Set(); const unique = [];
   for(const inc of all){
     const key = (inc.name||'unknown').toLowerCase();
-    if(seen.has(key)) continue;
-    seen.add(key);
-    unique.push(inc);
+    if(seen.has(key)) continue; seen.add(key); unique.push(inc);
   }
-
   const body = document.getElementById('recordsPopupBody');
-
   if(!unique.length){
     body.innerHTML = '<div class="empty">No patient records yet.</div>';
   } else {
@@ -443,7 +450,7 @@ function openPatientRecordsPopup(){
               '</div>' +
               '<div style="font-size:11px;color:#7b879a;font-family:monospace">' + safe(i.incident_id) + (i.age ? ' · ' + safe(i.age) + ' yrs' : '') + '</div>' +
             '</div>' +
-            '<span class="status ' + String(i.status||'New').replace(/\s+/g,'-') + '">' + safe(i.status || 'New') + '</span>' +
+            '<span class="status ' + String(i.status||'NEW').replace(/\s+/g,'-') + '">' + safe(i.status || 'NEW') + '</span>' +
           '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
             '<div class="detail"><label>BLOOD GROUP</label><div style="color:#cf343b;font-weight:800">' + safe(i.blood || 'Not provided') + '</div></div>' +
@@ -457,12 +464,9 @@ function openPatientRecordsPopup(){
       );
     }).join('');
   }
-
   document.getElementById('recordsPopupOverlay').classList.add('show');
 }
-function closePatientRecordsPopup(){
-  document.getElementById('recordsPopupOverlay').classList.remove('show');
-}
+function closePatientRecordsPopup(){ document.getElementById('recordsPopupOverlay').classList.remove('show'); }
 document.getElementById('recordsPopupOverlay').addEventListener('click', e => {
   if(e.target.id === 'recordsPopupOverlay') closePatientRecordsPopup();
 });
@@ -470,9 +474,7 @@ document.getElementById('recordsPopupOverlay').addEventListener('click', e => {
 const AMBULANCES = [
   {id:'AMB-01',name:'Ambulance 01',status:'idle',lat:null,lng:null,hospital:'Apollo Main'},
   {id:'AMB-02',name:'Ambulance 02',status:'idle',lat:null,lng:null,hospital:'Fortis Central'},
-  {id:'AMB-03',name:'Ambulance 03',status:'idle',lat:null,lng:null,hospital:'Global Health City'},
-  {id:'AMB-04',name:'Ambulance 04',status:'idle',lat:null,lng:null,hospital:'MIOT International'},
-  {id:'AMB-05',name:'Ambulance 05',status:'idle',lat:null,lng:null,hospital:'Apollo Greams'}
+  {id:'AMB-03',name:'Ambulance 03',status:'idle',lat:null,lng:null,hospital:'Global Health City'}
 ];
 const HOSPITAL = {name:'Apollo Main Hospital',lat:null,lng:null};
 
@@ -544,28 +546,26 @@ function setConn(state,text){
   else if(state==='err') b.classList.add('err');
   document.getElementById('connText').textContent = text;
 }
-async function startSSE(){
-  try {
-    const resp = await fetch(API_BASE + '/api/stream', { headers:{'Authorization': authHeader} });
-    if(!resp.body) throw new Error('No stream');
-    setConn('ok','Live');
-    const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
-    while(true){
-      const { value, done } = await reader.read();
-      if(done) break;
-      buf += dec.decode(value, { stream:true });
-      let idx;
-      while((idx = buf.indexOf('\n\n')) !== -1){
-        const chunk = buf.slice(0, idx); buf = buf.slice(idx+2); handleSSE(chunk);
-      }
-    }
-    setConn('err','Disconnected');
-    if(authHeader) setTimeout(startSSE, 3000);
-  } catch(e){
-    setConn('err','Reconnecting…');
-    if(authHeader) setTimeout(startSSE, 3000);
-  }
+
+function startSSE(){
+  if(!authHeader) return;
+  fetch(API_BASE + '/api/stream', { headers:{'Authorization': authHeader} })
+    .then(resp => {
+        if(!resp.body) return;
+        const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
+        const read = () => reader.read().then(({value, done}) => {
+            if(done) return;
+            buf += dec.decode(value, { stream:true });
+            let idx;
+            while((idx = buf.indexOf('\n\n')) !== -1){
+              const chunk = buf.slice(0, idx); buf = buf.slice(idx+2); handleSSE(chunk);
+            }
+            read();
+        });
+        read();
+    }).catch(e => console.log("SSE not available, relying on Socket.IO"));
 }
+
 function handleSSE(chunk){
   const lines = chunk.split('\n');
   let event = 'message', data = '';
@@ -582,66 +582,29 @@ function handleSSE(chunk){
     incidents.unshift(payload);
     if(!selectedId) selectedId = payload.incident_id;
     renderAll();
-    placeAmbulancesAround(payload);
     refreshMap();
-    fireAlert(payload);
-  } else if(event==='incident-updated'){
-    const i = incidents.findIndex(x => x.incident_id === payload.incident_id);
-    if(i !== -1) incidents[i] = payload;
-    renderAll(); refreshMap();
+    if (!soundEnabled) showPopup(payload); // Show fallback popup if socket failed
   }
 }
 
-let audioCtx = null;
-function playSound(){
-  try {
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    const now = audioCtx.currentTime;
-    [880, 660].forEach((freq, idx) => {
-      const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = freq;
-      o.connect(g); g.connect(audioCtx.destination);
-      const t0 = now + idx * 0.18;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.2, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
-      o.start(t0); o.stop(t0 + 0.55);
-    });
-  } catch(e) {}
-}
-document.addEventListener('click', function unlock(){
-  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-  document.removeEventListener('click', unlock);
-});
-function fireAlert(inc){ playSound(); showPopup(inc); }
-
 function showPopup(inc){
   currentPopupIncidentId = inc.incident_id;
-  const timeStr = inc.created_at ? new Date(inc.created_at).toLocaleString() : '—';
-  const allergy = (inc.allergies || '').trim();
-  const hasAllergy = allergy && !/^(not provided|none reported|none)$/i.test(allergy);
-  const hasLoc = inc.latitude != null && inc.longitude != null;
-  const locationText = hasLoc ? Number(inc.latitude).toFixed(5)+', '+Number(inc.longitude).toFixed(5) : 'Not provided';
-  const sourceLabel = inc.source==='qr-scan' ? 'QR-scanned profile' :
-                      inc.source==='in-app' ? 'SOS Buddy app' :
-                      (inc.source || 'Not provided');
+  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
+  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
+  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
+  const sourceLabel = inc.location ? inc.location.source : 'unknown';
 
   document.getElementById('popupBody').innerHTML =
     '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
     '<div class="popup-row"><span>Patient</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
-    '<div class="popup-row"><span>Blood Group</span><span style="color:#cf343b;font-size:16px;font-weight:800">'+safe(inc.blood||'—')+'</span></div>' +
     '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Allergies</span><span>'+(inc.allergies ? safe(inc.allergies) : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Conditions</span><span>'+(inc.conditions ? safe(inc.conditions) : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Medications</span><span>'+(inc.medications ? safe(inc.medications) : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+'</span></div>' +
-    '<div class="popup-row"><span>Source</span><span>'+safe(sourceLabel)+'</span></div>' +
-    '<div class="popup-row"><span>Reported</span><span>'+safe(timeStr)+'</span></div>' +
-    (hasAllergy ? '<div class="popup-warn"><svg><use href="#i-alert"/></svg> Allergy warning: '+safe(allergy)+'</div>' : '');
+    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
+    '<div class="popup-row"><span>Verified Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
+    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
+  
   document.getElementById('popupOverlay').classList.add('show');
 }
+
 function closePopup(){
   document.getElementById('popupOverlay').classList.remove('show');
   currentPopupIncidentId = null;
@@ -654,7 +617,7 @@ function popupView(){
   }
 }
 function popupAcknowledge(){
-  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'Acknowledged'); closePopup(); }
+  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'ACKNOWLEDGED'); closePopup(); }
 }
 document.getElementById('popupOverlay').addEventListener('click', e => {
   if(e.target.id === 'popupOverlay') closePopup();
@@ -724,7 +687,7 @@ function placeAmbulancesAround(inc){
   if(inc.latitude == null || inc.longitude == null) return;
   HOSPITAL.lat = inc.latitude + 0.010;
   HOSPITAL.lng = inc.longitude + 0.010;
-  const offsets = [[0.014,0.012],[0.020,-0.008],[-0.010,0.018],[0.008,-0.018],[-0.016,-0.014]];
+  const offsets = [[0.014,0.012],[0.020,-0.008],[-0.010,0.018]];
   AMBULANCES.forEach((a,i) => { a.status='idle'; a.lat=inc.latitude+offsets[i][0]; a.lng=inc.longitude+offsets[i][1]; });
 }
 function haversineKm(lat1,lng1,lat2,lng2){
@@ -736,18 +699,12 @@ function haversineKm(lat1,lng1,lat2,lng2){
 }
 function dispatchAmbulance(ambId){
   const sel = getSelected();
-  if(!sel || sel.latitude == null) return;
+  if(!sel) return;
   const amb = AMBULANCES.find(a => a.id===ambId);
   if(!amb) return;
   amb.status = 'dispatched';
   showToast(amb.name+' dispatched to '+sel.incident_id+'.');
-  updateStatus(sel.incident_id, 'Dispatched');
-  if(map && routeLayer){
-    routeLayer.clearLayers();
-    const line = L.polyline([[amb.lat,amb.lng],[sel.latitude,sel.longitude]],
-      { color:'#16a34a', weight:4, opacity:.75, dashArray:'8 6' }).addTo(routeLayer);
-    map.fitBounds(line.getBounds().pad(0.3));
-  }
+  updateStatus(sel.incident_id, 'IN PROGRESS');
   refreshMap();
 }
 
@@ -777,7 +734,7 @@ function renderTable(){
   document.getElementById('alertCount').textContent = incidents.length;
   const tbody = document.getElementById('alertRows');
   if(!incidents.length){
-    tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><strong>No emergency alerts</strong>When a bystander presses SOS, the alert will appear here.</div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty"><strong>No emergency alerts</strong>When a bystander scans a QR, the alert will appear here.</div></td></tr>';
   } else {
     tbody.innerHTML = incidents.map(i =>
       '<tr class="'+(i.incident_id===selectedId?'selected':'')+'" onclick="selectIncident(\''+i.incident_id+'\')">' +
@@ -791,9 +748,9 @@ function renderTable(){
   document.getElementById('tableCount').textContent = 'Showing '+incidents.length+' incident'+(incidents.length===1?'':'s');
 }
 function renderStats(){
-  document.getElementById('newCount').textContent = incidents.filter(i => i.status==='New').length;
-  document.getElementById('activeCount').textContent = incidents.filter(i => i.status==='Acknowledged'||i.status==='In Progress'||i.status==='Dispatched').length;
-  document.getElementById('resolvedCount').textContent = incidents.filter(i => i.status==='Resolved').length;
+  document.getElementById('newCount').textContent = incidents.filter(i => i.status==='NEW').length;
+  document.getElementById('activeCount').textContent = incidents.filter(i => i.status==='ACKNOWLEDGED'||i.status==='IN PROGRESS'||i.status==='Dispatched').length;
+  document.getElementById('resolvedCount').textContent = incidents.filter(i => i.status==='RESOLVED').length;
 }
 function renderPatient(){
   const i = incidents.find(x => x.incident_id===selectedId);
@@ -802,7 +759,7 @@ function renderPatient(){
   c.innerHTML =
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px">' +
       '<div class="detail"><label>Full Name</label><div>'+safe(i.name)+'</div></div>' +
-      '<div class="detail"><label>Blood Group</label><div style="color:#cf343b;font-weight:800;font-size:16px">'+safe(i.blood)+'</div></div>' +
+      '<div class="detail"><label>Blood Group</label><div style="color:#cf343b;font-weight:800;font-size:16px">'+safe(i.blood || '—')+'</div></div>' +
       '<div class="detail"><label>Age</label><div>'+(i.age?safe(i.age)+' years':'Not provided')+'</div></div>' +
       '<div class="detail"><label>Incident ID</label><div>'+safe(i.incident_id)+'</div></div>' +
       '<div class="detail" style="grid-column:1/-1"><label>Allergies</label><div>'+(i.allergies?safe(i.allergies):'Not provided')+'</div></div>' +
@@ -810,9 +767,9 @@ function renderPatient(){
       '<div class="detail" style="grid-column:1/-1"><label>Medications</label><div>'+(i.medications?safe(i.medications):'Not provided')+'</div></div>' +
     '</div>' +
     '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
-      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#356ae6;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'Acknowledged\')">Acknowledge</button>' +
-      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#f59e0b;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'In Progress\')">In Progress</button>' +
-      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#e9eef6;color:#263850;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'Resolved\')">Resolve</button>' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#356ae6;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'ACKNOWLEDGED\')">Acknowledge</button>' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#f59e0b;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'IN PROGRESS\')">In Progress</button>' +
+      '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#e9eef6;color:#263850;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'RESOLVED\')">Resolve</button>' +
     '</div>';
 }
 function selectIncident(id){ selectedId = id; renderAll(); refreshMap(); }
