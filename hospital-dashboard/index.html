@@ -305,33 +305,38 @@ let selectedId = null;
 let authHeader = null;
 let currentPopupIncidentId = null;
 
-// --- AUDIO SETUP ---
-let alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-
-// Page-la oru click panna, sound unlock aagum (Browser policy)
-document.addEventListener('click', function unlockAudio() {
-    alertSound.play().then(() => {
-        alertSound.pause();
-        alertSound.currentTime = 0;
-    }).catch(() => {});
-    document.removeEventListener('click', unlockAudio);
-});
-
 // --- SOCKET.IO SETUP ---
 const socket = io(API_BASE);
 socket.on('connect', () => {
     console.log('Socket connected for real-time alerts');
 });
 
+// --- AUDIO SETUP ---
+let audioCtx = null;
+let soundEnabled = false;
+
+function playSiren() {
+    if(!soundEnabled || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.4);
+    osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.8);
+    gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.2);
+}
+
 // --- LISTEN FOR REAL-TIME EMERGENCIES ---
 socket.on("new_emergency", (data) => {
-    // 1. Sound play pannunga
-    alertSound.play().catch(e => console.log('Browser blocked sound:', e));
+    playSiren();
     
-    // 2. Data-a correct-a format pannunga
     const newInc = {
         incident_id: data.incidentId,
         name: data.patientName,
+        dob: data.dob || 'Not provided',
         age: data.age,
         blood: data.blood || 'N/A',
         allergies: data.allergies || 'None reported',
@@ -350,12 +355,13 @@ socket.on("new_emergency", (data) => {
     showPopup(newInc);
 });
 
-function showPopup(inc) {
+function showPopup(inc){
   currentPopupIncidentId = inc.incident_id;
   const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
-  const locationText = inc.location && inc.location.text ? inc.location.text : 'Not provided';
+  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
+  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
+  const sourceLabel = inc.location ? inc.location.source : 'unknown';
 
-  // Main popup body-a update pannunga
   document.getElementById('popupBody').innerHTML =
     '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
     '<div class="popup-row"><span>Patient Name</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
@@ -366,7 +372,8 @@ function showPopup(inc) {
     '<div class="popup-row"><span>Medical Conditions</span><span>'+safe(inc.conditions||'None reported')+'</span></div>' +
     '<div class="popup-row"><span>Medications</span><span>'+safe(inc.medications||'None reported')+'</span></div>' +
     '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
-    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+'</span></div>';
+    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
+    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
   
   document.getElementById('popupOverlay').classList.add('show');
 }
@@ -605,7 +612,6 @@ function handleSSE(chunk){
     if(!selectedId) selectedId = payload.incident_id;
     renderAll();
     refreshMap();
-    // Ithu socket.io already handle pannudhu, so SSE la popup vendaam
   }
 }
 
@@ -771,6 +777,15 @@ function showToast(msg){
 }
 
 (async function boot(){
+  // Auto-enable sound on first click anywhere on the page
+  document.addEventListener('click', () => {
+    if(!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    soundEnabled = true;
+  }, { once: true });
+
   if(loadAuth()){
     hideLogin();
     await fetchIncidents();
