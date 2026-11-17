@@ -295,7 +295,7 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <script>
-const API_BASE = 'https://sos-backend-production-0e25.up.railway.app/hospital-dashboard/index.html';
+const API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
 const LS_KEY = 'sosbuddy-dashboard-auth';
 const SEEN_KEY = 'sosbuddy-seen-ids-v11';
 const DEFAULT_CENTER = [13.0827, 80.2707];
@@ -309,7 +309,6 @@ let currentPopupIncidentId = null;
 const socket = io(API_BASE);
 socket.on('connect', () => {
     console.log('Socket connected for real-time alerts');
-    socket.emit('join_hospital', { hospital_id: 'default' }); 
 });
 
 // --- AUDIO SETUP ---
@@ -337,7 +336,12 @@ socket.on("new_emergency", (data) => {
     const newInc = {
         incident_id: data.incidentId,
         name: data.patientName,
+        dob: data.dob || 'Not provided',
         age: data.age,
+        blood: data.blood || 'N/A',
+        allergies: data.allergies || 'None reported',
+        conditions: data.conditions || 'None reported',
+        medications: data.medications || 'None reported',
         scanTime: data.scanTime,
         location: data.location,
         status: 'NEW',
@@ -351,6 +355,49 @@ socket.on("new_emergency", (data) => {
     showPopup(newInc);
 });
 
+function showPopup(inc){
+  currentPopupIncidentId = inc.incident_id;
+  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
+  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
+  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
+  const sourceLabel = inc.location ? inc.location.source : 'unknown';
+
+  document.getElementById('popupBody').innerHTML =
+    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
+    '<div class="popup-row"><span>Patient Name</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
+    '<div class="popup-row"><span>Date of Birth</span><span>'+(inc.dob ? safe(inc.dob) : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
+    '<div class="popup-row"><span style="color:#dc2626">Blood Group</span><span style="color:#dc2626;font-weight:800">'+safe(inc.blood||'N/A')+'</span></div>' +
+    '<div class="popup-row"><span>Allergies</span><span>'+safe(inc.allergies||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Medical Conditions</span><span>'+safe(inc.conditions||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Medications</span><span>'+safe(inc.medications||'None reported')+'</span></div>' +
+    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
+    '<div class="popup-row"><span>Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
+    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
+  
+  document.getElementById('popupOverlay').classList.add('show');
+}
+
+function closePopup(){
+  document.getElementById('popupOverlay').classList.remove('show');
+  currentPopupIncidentId = null;
+}
+function popupView(){
+  if(currentPopupIncidentId){
+    selectedId = currentPopupIncidentId;
+    closePopup(); renderAll(); refreshMap();
+    document.getElementById('patientDetails').scrollIntoView({ behavior:'smooth' });
+  }
+}
+function popupAcknowledge(){
+  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'ACKNOWLEDGED'); closePopup(); }
+}
+document.getElementById('popupOverlay').addEventListener('click', e => {
+  if(e.target.id === 'popupOverlay') closePopup();
+});
+
+
+// --- APPLICATION LOGIC ---
 const SAMPLE_INCIDENTS = [
   {
     incident_id: 'SAMPLE-0001',
@@ -565,45 +612,8 @@ function handleSSE(chunk){
     if(!selectedId) selectedId = payload.incident_id;
     renderAll();
     refreshMap();
-    if (!soundEnabled) showPopup(payload); 
   }
 }
-
-function showPopup(inc){
-  currentPopupIncidentId = inc.incident_id;
-  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
-  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
-  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
-  const sourceLabel = inc.location ? inc.location.source : 'unknown';
-
-  document.getElementById('popupBody').innerHTML =
-    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
-    '<div class="popup-row"><span>Patient</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
-    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
-    '<div class="popup-row"><span>Verified Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
-    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
-  
-  document.getElementById('popupOverlay').classList.add('show');
-}
-
-function closePopup(){
-  document.getElementById('popupOverlay').classList.remove('show');
-  currentPopupIncidentId = null;
-}
-function popupView(){
-  if(currentPopupIncidentId){
-    selectedId = currentPopupIncidentId;
-    closePopup(); renderAll(); refreshMap();
-    document.getElementById('patientDetails').scrollIntoView({ behavior:'smooth' });
-  }
-}
-function popupAcknowledge(){
-  if(currentPopupIncidentId){ updateStatus(currentPopupIncidentId, 'ACKNOWLEDGED'); closePopup(); }
-}
-document.getElementById('popupOverlay').addEventListener('click', e => {
-  if(e.target.id === 'popupOverlay') closePopup();
-});
 
 function initMap(){
   if(map) return;
