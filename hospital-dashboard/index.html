@@ -197,10 +197,6 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
         <p class="subtitle">Monitor SOS alerts and patient medical information.</p>
       </div>
       <div style="display:flex;gap:10px;align-items:center">
-        <!-- Added Sound Button -->
-        <button id="enableSoundBtn" style="padding:0 12px;height:36px;border-radius:9px;background:#13233f;color:#fff;border:none;font-weight:700;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;">
-          🔊 Enable Emergency Sound
-        </button>
         <span class="conn" id="connBadge"><span class="dot"></span><span id="connText">Connecting…</span></span>
         <button class="icon-btn" title="Sign out" onclick="logout()"><svg><use href="#i-logout"/></svg></button>
       </div>
@@ -319,20 +315,6 @@ socket.on('connect', () => {
 // --- AUDIO SETUP ---
 let audioCtx = null;
 let soundEnabled = false;
-
-document.getElementById('enableSoundBtn').addEventListener('click', async () => {
-    try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        await audioCtx.resume();
-        soundEnabled = true;
-        const btn = document.getElementById('enableSoundBtn');
-        btn.innerText = "🔊 Sound Enabled";
-        btn.style.background = "#16815e";
-        showToast("Emergency sound enabled successfully.");
-    } catch(e) {
-        showToast("Failed to enable audio. Please try again.");
-    }
-});
 
 function playSiren() {
     if(!soundEnabled || !audioCtx) return;
@@ -583,7 +565,7 @@ function handleSSE(chunk){
     if(!selectedId) selectedId = payload.incident_id;
     renderAll();
     refreshMap();
-    if (!soundEnabled) showPopup(payload); // Show fallback popup if socket failed
+    if (!soundEnabled) showPopup(payload); 
   }
 }
 
@@ -785,6 +767,15 @@ function showToast(msg){
 }
 
 (async function boot(){
+  // Auto-enable sound on first click anywhere on the page
+  document.addEventListener('click', () => {
+    if(!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    soundEnabled = true;
+  }, { once: true });
+
   if(loadAuth()){
     hideLogin();
     await fetchIncidents();
