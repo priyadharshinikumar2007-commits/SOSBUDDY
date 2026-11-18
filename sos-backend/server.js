@@ -164,13 +164,15 @@ async function startServer() {
   app.use(express.json({ limit: '64kb' }));
 
   // ==========================================
-  // STATIC FILE SERVING
+  // STATIC FILE SERVING & ROUTING FIXES
   // ==========================================
+  // Serve the frontend directories from inside the sos-backend folder
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
+  // The Root URL goes to the SOS Buddy user page
   app.get('/', (req, res) => {
-    res.redirect('/hospital-dashboard/index.html');
+    res.redirect('/sosbuddy/index.html');
   });
 
   const sseClients = new Set();
@@ -202,25 +204,35 @@ async function startServer() {
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
       const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
+      let profileId = tokenRow ? tokenRow.profile_id : 'P-DEFAULT'; 
+
+      const recent = queryOne(
+        `SELECT * FROM incidents 
+         WHERE profile_id = ? 
+         AND datetime(created_at) > datetime('now','-60 seconds')
+         AND status != 'RESOLVED' AND status != 'CLOSED'`, 
+        [profileId]
+      );
+
+      if (recent) {
+        return res.send(`
+            <div style="font-family:sans-serif; text-align:center; padding:50px;">
+                <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
+                <p>The registered hospital has been notified.</p>
+                <p><strong>Incident ID:</strong> ${recent.incident_id}</p>
+            </div>
+        `);
+      }
 
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      
-      if (!latestProfile) {
-        latestProfile = { 
-            name: 'Unknown Patient', dob: '', blood: '', 
-            allergies: '', conditions: '', medications: '', other_info: '' 
-        };
-      }
+      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
 
       const id = nextIncidentId();
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
-      
-      const lat = 13.0827; 
-      const lng = 80.2707; 
-      
-      const locationText = 'Registered Address Unavailable';
+      const lat = null; 
+      const lng = null; 
+      const locationText = latestProfile.address || 'Registered Address Unavailable';
 
       const row = {
         incident_id: id, profile_id: profileId, 
@@ -253,12 +265,7 @@ async function startServer() {
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
-        dob: row.dob,
         age: row.age,
-        blood: row.blood,
-        allergies: row.allergies,
-        conditions: row.conditions,
-        medications: row.medications,
         scanTime: now,
         location: {
             source: row.location_source,
@@ -271,16 +278,18 @@ async function startServer() {
 
       broadcast('incident', json);
 
+      // Send the Bystander UI directly
       res.send(`
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
               <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
               <p>The registered hospital has been notified.</p>
+              <p>Thank you for helping. Your action may save a life.</p>
               <p><strong>Incident ID:</strong> ${id}</p>
           </div>
       `);
     } catch (err) {
       console.error('QR Scan Error:', err);
-      res.status(500).send('Server error: ' + err.message);
+      res.status(500).send('Server error');
     }
   });
 
@@ -301,6 +310,7 @@ async function startServer() {
   });
 
   app.post('/api/profiles', requireApiKey, (req, res) => {
+    // ... (Same as your existing code)
     try {
       const b = req.body || {};
       let profileId = sanitizeStr(b.profile_id, 60);
