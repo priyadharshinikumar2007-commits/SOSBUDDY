@@ -158,7 +158,7 @@ async function startServer() {
 
   const app = express();
   const server = http.createServer(app);
-  const io = new Server(server);
+  const io = new Server(server, { cors: { origin: "*" } });
 
   io.use((socket, next) => {
     const { username, password } = socket.handshake.auth || {};
@@ -211,90 +211,72 @@ async function startServer() {
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
       const tokenRow = queryOne(
-        'SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1',
+        'SELECT profile_id FROM qr_tokens WHERE token_hash = ? AND active = 1',
         [hash]
       );
       if (!tokenRow) {
         return res.status(404).send('Invalid or inactive QR code');
       }
-      const profileId = tokenRow.profile_id;
 
-      const recent = queryOne(
-        `SELECT * FROM incidents 
-         WHERE profile_id = ? 
-         AND datetime(created_at) > datetime('now','-60 seconds')
-         AND status != 'RESOLVED' AND status != 'CLOSED'`, 
-        [profileId]
-      );
-
-      if (recent) {
-        return res.send(`
-            <div style="font-family:sans-serif; text-align:center; padding:50px;">
-                <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
-                <p>The registered hospital has been notified.</p>
-                <p><strong>Incident ID:</strong> ${recent.incident_id}</p>
-            </div>
-        `);
-      }
-
-      const latestProfile = queryOne(
+      const profile = queryOne(
         'SELECT * FROM patients WHERE profile_id = ?',
-        [profileId]
+        [tokenRow.profile_id]
       );
-      if (!latestProfile) {
+      if (!profile) {
         return res.status(404).send('Patient profile not found');
       }
 
       const id = nextIncidentId();
       const now = nowIso();
-      const age = computeAge(latestProfile.dob);
-      const lat = null; 
-      const lng = null; 
-      const locationText = latestProfile.address || 'Registered Address Unavailable';
 
       const row = {
-        incident_id: id, profile_id: profileId, 
-        name: latestProfile.name || 'Unknown', dob: latestProfile.dob || '', age: age,
-        blood: latestProfile.blood || '', allergies: latestProfile.allergies || '',
-        conditions: latestProfile.conditions || '', medications: latestProfile.medications || '',
-        other_info: latestProfile.other_info || '',
-        latitude: lat, longitude: lng,
-        status: 'NEW', created_at: now, updated_at: now,
+        incident_id: id,
+        profile_id: profile.profile_id,
+        name: profile.name || 'Unknown',
+        dob: profile.dob || '',
+        age: computeAge(profile.dob),
+        blood: profile.blood || '',
+        allergies: profile.allergies || '',
+        conditions: profile.conditions || '',
+        medications: profile.medications || '',
+        other_info: profile.other_info || '',
+        latitude: null,
+        longitude: null,
+        status: 'NEW',
+        created_at: now,
+        updated_at: now,
         source: 'qr-scan',
-        location_source: 'victim_registered',
-        location_owner: 'victim',
+        location_source: 'unavailable',
+        location_owner: 'unknown',
         delivery_status: 'DELIVERED'
       };
 
       db.prepare(`INSERT INTO incidents (
         incident_id, profile_id, name, dob, age, blood, allergies,
         conditions, medications, other_info, latitude, longitude,
-        status, created_at, updated_at, source, location_source, location_owner, delivery_status
+        status, created_at, updated_at, source, location_source,
+        location_owner, delivery_status
       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run([
         row.incident_id, row.profile_id, row.name, row.dob, row.age,
-        row.blood, row.allergies, row.conditions, row.medications, row.other_info,
-        row.latitude, row.longitude, row.status, row.created_at, row.updated_at,
-        row.source, row.location_source, row.location_owner, row.delivery_status
+        row.blood, row.allergies, row.conditions, row.medications,
+        row.other_info, null, null, row.status, row.created_at,
+        row.updated_at, row.source, row.location_source,
+        row.location_owner, row.delivery_status
       ]);
+
       persistDb();
 
-      const json = incidentRowToJson(row);
+      // Notifies authenticated dashboard SSE connections; sends no patient data via Socket.IO.
+      broadcast('incident', incidentRowToJson(row));
 
-      io.emit('new_emergency', { incidentId: id });
-
-      broadcast('incident', json);
-
-      res.send(`
-          <div style="font-family:sans-serif; text-align:center; padding:50px;">
-              <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
-              <p>The registered hospital has been notified.</p>
-              <p>Thank you for helping. Your action may save a life.</p>
-              <p><strong>Incident ID:</strong> ${id}</p>
-          </div>
-      `);
+      res.send(
+        '<div style="font-family:sans-serif;text-align:center;padding:50px">' +
+        '<h1 style="color:#16a34a">Alert sent</h1>' +
+        `<p>Incident ID: ${id}</p></div>`
+      );
     } catch (err) {
-      console.error('QR Scan Error:', err);
-      res.status(500).send('Server error');
+      console.error('QR scan error:', err);
+      res.status(500).send('Unable to process QR scan');
     }
   });
 
@@ -356,7 +338,7 @@ async function startServer() {
     }
   });
 
-  app.get('/api/profiles/:id', (req, res) => {
+  app.get('/api/profiles/:id', requireStaff, (req, res) => {
     const row = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [req.params.id]);
     if (!row) return res.status(404).json({ ok: false, error: 'Profile not found' });
     res.set('Cache-Control', 'no-store');
