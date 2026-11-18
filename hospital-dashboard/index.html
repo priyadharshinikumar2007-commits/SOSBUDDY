@@ -292,7 +292,113 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+(() => {
+  const panel = document.createElement('section');
+  panel.style.cssText =
+    'position:fixed;right:16px;top:16px;z-index:99999;background:white;' +
+    'padding:16px;border:1px solid #ccd3df;border-radius:10px;' +
+    'box-shadow:0 4px 18px #0002;font:14px Arial;';
+
+  panel.innerHTML = `
+    <form id="staff-login">
+      <strong>Hospital live alerts</strong><br><br>
+      <input name="username" placeholder="Staff username" required autocomplete="username">
+      <br><br>
+      <input name="password" type="password" placeholder="Staff password"
+             required autocomplete="current-password">
+      <br><br>
+      <button type="submit">Connect</button>
+      <button type="button" id="enable-sound">Enable alert sound</button>
+    </form>
+    <p id="live-status" role="status">Sign in to receive alerts.</p>
+  `;
+  document.body.appendChild(panel);
+
+  const status = panel.querySelector('#live-status');
+  let audioContext;
+  let socket;
+  let username;
+  let password;
+
+  function beep() {
+    if (!audioContext || audioContext.state !== 'running') return;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.frequency.value = 880;
+    gain.gain.value = 0.15;
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.35);
+  }
+
+  panel.querySelector('#enable-sound').addEventListener('click', async () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      status.textContent = 'Sound is not supported by this browser.';
+      return;
+    }
+    audioContext = audioContext || new AudioContext();
+    await audioContext.resume();
+    beep();
+    status.textContent = 'Alert sound enabled.';
+  });
+
+  panel.querySelector('#staff-login').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!window.io) {
+      status.textContent = 'Socket.IO did not load. Check the deployment.';
+      return;
+    }
+
+    const form = event.currentTarget;
+    username = form.elements.username.value;
+    password = form.elements.password.value;
+
+    if (socket) socket.disconnect();
+    socket = window.io({
+      auth: { username, password }
+    });
+
+    socket.on('connect', () => {
+      status.textContent = 'Connected. Waiting for SOS scans.';
+    });
+
+    socket.on('connect_error', () => {
+      status.textContent = 'Connection failed. Check staff credentials and server.';
+    });
+
+    socket.on('new_emergency', async ({ incidentId } = {}) => {
+      if (!incidentId) return;
+
+      beep();
+      try {
+        const response = await fetch(
+          `/api/incidents/${encodeURIComponent(incidentId)}`,
+          {
+            headers: {
+              Authorization: 'Basic ' + btoa(`${username}:${password}`)
+            },
+            cache: 'no-store'
+          }
+        );
+        if (!response.ok) throw new Error('Incident lookup failed');
+
+        const data = await response.json();
+        const incident = data.incident;
+        window.alert(
+          `NEW SOS ALERT\nIncident: ${incident.incident_id}\n` +
+          `Patient: ${incident.name || 'Unknown'}\nStatus: ${incident.status}`
+        );
+      } catch {
+        window.alert(`NEW SOS ALERT\nIncident: ${incidentId}`);
+      }
+    });
+  });
+})();
+</script>
 
 <script>
 const API_BASE = 'https://sos-backend-production-0e25.up.railway.app';

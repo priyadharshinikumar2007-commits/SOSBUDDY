@@ -158,7 +158,16 @@ async function startServer() {
 
   const app = express();
   const server = http.createServer(app);
-  const io = new Server(server, { cors: { origin: "*" } });
+  const io = new Server(server);
+
+  io.use((socket, next) => {
+    const { username, password } = socket.handshake.auth || {};
+    if (username !== STAFF_USER || password !== STAFF_PASS) {
+      return next(new Error('Unauthorized'));
+    }
+    next();
+  });
+// ...existing code...z
 
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
@@ -201,8 +210,14 @@ async function startServer() {
       const rawToken = req.params.token;
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-      const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      let profileId = tokenRow ? tokenRow.profile_id : 'P-DEFAULT'; 
+      const tokenRow = queryOne(
+        'SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1',
+        [hash]
+      );
+      if (!tokenRow) {
+        return res.status(404).send('Invalid or inactive QR code');
+      }
+      const profileId = tokenRow.profile_id;
 
       const recent = queryOne(
         `SELECT * FROM incidents 
@@ -222,8 +237,13 @@ async function startServer() {
         `);
       }
 
-      let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
+      const latestProfile = queryOne(
+        'SELECT * FROM patients WHERE profile_id = ?',
+        [profileId]
+      );
+      if (!latestProfile) {
+        return res.status(404).send('Patient profile not found');
+      }
 
       const id = nextIncidentId();
       const now = nowIso();
@@ -260,19 +280,7 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      io.emit("new_emergency", {
-        incidentId: id,
-        patientName: row.name,
-        age: row.age,
-        scanTime: now,
-        location: {
-            source: row.location_source,
-            owner: row.location_owner,
-            text: locationText,
-            lat: lat,
-            lng: lng
-        }
-      });
+      io.emit('new_emergency', { incidentId: id });
 
       broadcast('incident', json);
 
