@@ -163,18 +163,24 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
 
-    // ==========================================
+     // ==========================================
   // STATIC FILE SERVING
   // ==========================================
   const DASHBOARD_DIR = path.join(__dirname, '..', 'hospital-dashboard');
 
-  app.use('/hospital-dashboard', express.static(DASHBOARD_DIR));
-  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
-
-  // Open the hospital dashboard at the backend's root URL
+  // Open the hospital dashboard at the root URL
   app.get('/', (_req, res) => {
     res.sendFile(path.join(DASHBOARD_DIR, 'index.html'));
   });
+
+  // Also allow the dashboard's direct URL
+  app.get('/hospital-dashboard', (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, 'index.html'));
+  });
+
+  // Serve dashboard assets and the SOS Buddy files
+  app.use('/hospital-dashboard', express.static(DASHBOARD_DIR));
+  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 // ...existing code...
   // ==========================================
   // AUTOMATIC QR SCAN ENDPOINT
