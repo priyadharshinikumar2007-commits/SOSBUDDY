@@ -657,26 +657,31 @@ function refreshMap(){
   }
   renderDispatchList();
 }
-function renderDispatchList(){
+function renderDispatchList() {
   const list = document.getElementById('dispatchList');
   const sel = getSelected();
-  if(!sel || sel.latitude == null || sel.longitude == null){
-    list.innerHTML = '<div style="padding:6px 0;font-size:11px;color:#7b879a">No location for the selected incident.</div>';
-    return;
-  }
-  list.innerHTML = AMBULANCES.map(a => {
-    const dist = (a.lat != null) ? haversineKm(sel.latitude, sel.longitude, a.lat, a.lng) : null;
-    const eta = dist != null ? Math.max(2, Math.round(dist*2)) : null;
-    const dis = a.status==='dispatched';
-    return '<div class="dispatch-row">' +
-      '<div class="avatar">'+a.id.slice(-2)+'</div>' +
-      '<div class="info"><strong>'+a.name+'</strong>' +
-        '<small>'+a.hospital+(dist!=null?' · '+dist.toFixed(1)+' km · ~'+eta+' min':'')+'</small></div>' +
-      '<div class="dist">'+(dis?'Dispatched':'')+'</div>' +
-      '<button '+(dis?'disabled':'')+' onclick="dispatchAmbulance(\''+a.id+'\')">' +
-        '<svg><use href="#i-ambulance"/></svg>'+(dis?'On the way':'Dispatch')+'</button>' +
-    '</div>';
-  }).join('');
+
+  const message = !sel
+    ? 'Select an incident above to try the demo dispatch controls.'
+    : 'DEMO ONLY — this does not contact or dispatch a real ambulance.';
+
+  list.innerHTML =
+    '<div style="padding:6px 0;font-size:11px;color:#986307;font-weight:700">' +
+    message +
+    '</div>' +
+    AMBULANCES.map(a => {
+      const dispatched = a.status === 'dispatched';
+      return '<div class="dispatch-row">' +
+        '<div class="avatar">' + safe(a.id.slice(-2)) + '</div>' +
+        '<div class="info"><strong>' + safe(a.name) + '</strong>' +
+        '<small>' + safe(a.hospital) + ' · Demo unit</small></div>' +
+        '<div class="dist">' + (dispatched ? 'Demo status' : '') + '</div>' +
+        '<button ' + ((!sel || dispatched) ? 'disabled' : '') +
+        ' onclick="dispatchAmbulance(\'' + safe(a.id) + '\')">' +
+        '<svg><use href="#i-ambulance"/></svg>' +
+        (dispatched ? 'On the way' : 'Dispatch demo') +
+        '</button></div>';
+    }).join('');
 }
 function placeAmbulancesAround(inc){
   if(inc.latitude == null || inc.longitude == null) return;
