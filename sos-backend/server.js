@@ -18,7 +18,6 @@ const STAFF_PASS = process.env.STAFF_PASS;
 if (!SOS_API_KEY || !STAFF_USER || !STAFF_PASS) {
   throw new Error('Set SOS_API_KEY, STAFF_USER, and STAFF_PASS in Railway Variables');
 }
-// ...existing code...
 const DB_PATH = path.join(__dirname, 'incidents.db');
 let db = null;
 
@@ -215,8 +214,14 @@ async function startServer() {
       const rawToken = req.params.token;
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-      const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
+      const tokenRow = queryOne(
+        `SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`,
+        [hash]
+      );
+      if (!tokenRow) {
+        return res.status(404).send('Invalid or inactive QR code');
+      }
+      const profileId = tokenRow.profile_id;
 
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
       
@@ -300,19 +305,32 @@ async function startServer() {
     }
   });
 
-  app.get('/api/generate-qr/:profile_id', (req, res) => {
+  app.post('/api/generate-qr/:profile_id', requireStaff, (req, res) => {
     const profileId = req.params.profile_id;
-    const rawToken = crypto.randomBytes(16).toString('hex');
+    const profile = queryOne(
+      'SELECT profile_id FROM patients WHERE profile_id = ?',
+      [profileId]
+    );
+    if (!profile) {
+      return res.status(404).json({ ok: false, error: 'Profile not found' });
+    }
+
+    const publicBaseUrl = process.env.PUBLIC_BASE_URL;
+    if (!publicBaseUrl) {
+      return res.status(500).json({ ok: false, error: 'PUBLIC_BASE_URL is not configured' });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
     const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const now = nowIso();
-    
-    db.prepare(`INSERT INTO qr_tokens (profile_id, token_hash, created_at) VALUES (?,?,?)`).run([profileId, hash, now]);
+
+    db.prepare(
+      'INSERT INTO qr_tokens (profile_id, token_hash, created_at) VALUES (?,?,?)'
+    ).run([profileId, hash, nowIso()]);
     persistDb();
-    
-    res.json({ 
-      success: true, 
-      url: `https://sos-backend-production-0e25.up.railway.app/api/scan/${rawToken}`,
-      token: rawToken
+
+    res.json({
+      success: true,
+      url: `${publicBaseUrl.replace(/\/$/, '')}/api/scan/${rawToken}`
     });
   });
 
@@ -358,9 +376,14 @@ async function startServer() {
     }
   });
 
-  app.get('/api/profiles/:id', (req, res) => {
-    const row = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [req.params.id]);
-    if (!row) return res.status(404).json({ ok: false, error: 'Profile not found' });
+  app.get('/api/profiles/:id', requireStaff, (req, res) => {
+    const row = queryOne(
+      'SELECT * FROM patients WHERE profile_id = ?',
+      [req.params.id]
+    );
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'Profile not found' });
+    }
     res.set('Cache-Control', 'no-store');
     res.json({ ok: true, profile: profileRowToJson(row) });
   });
