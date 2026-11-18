@@ -69,6 +69,19 @@ function nextIncidentId() {
   }
   return prefix + String(n).padStart(4, '0');
 }
+function nextSecurityId() {
+  const year = new Date().getUTCFullYear();
+  const prefix = `SEC-${year}-`;
+  const row = queryOne(
+    `SELECT incident_id FROM security_incidents WHERE incident_id LIKE ?
+     ORDER BY incident_id DESC LIMIT 1`, [prefix + '%']);
+  let n = 1;
+  if (row && row.incident_id) {
+    const tail = parseInt(row.incident_id.slice(prefix.length), 10);
+    if (!Number.isNaN(tail)) n = tail + 1;
+  }
+  return prefix + String(n).padStart(4, '0');
+}
 function requireApiKey(req, res, next) {
   const key = req.get('x-api-key') || req.query.apiKey;
   if (key !== SOS_API_KEY) return res.status(401).json({ ok: false, error: 'Invalid API key' });
@@ -110,6 +123,16 @@ function incidentRowToJson(r) {
     location_source: r.location_source || 'unavailable',
     location_owner: r.location_owner || 'unknown',
     delivery_status: r.delivery_status || 'DELIVERED'
+  };
+}
+function securityIncidentRowToJson(r) {
+  if (!r) return null;
+  return {
+    incident_id: r.incident_id, profile_id: r.profile_id || '',
+    name: r.name || '', age: r.age || '', phone: r.phone || '',
+    latitude: r.latitude, longitude: r.longitude,
+    status: r.status, created_at: r.created_at, updated_at: r.updated_at,
+    contacts: r.contacts ? JSON.parse(r.contacts) : []
   };
 }
 
@@ -155,8 +178,21 @@ async function startServer() {
     );
   `);
   
+  // NEW TABLE: Security Incidents
+  db.run(`
+    CREATE TABLE IF NOT EXISTS security_incidents (
+      incident_id TEXT PRIMARY KEY, profile_id TEXT,
+      name TEXT, age TEXT, phone TEXT,
+      latitude REAL, longitude REAL,
+      status TEXT NOT NULL DEFAULT 'NEW',
+      contacts TEXT, -- JSON string of contacts
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+  `);
+
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_profile ON incidents(profile_id);`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_security_incidents_status ON security_incidents(status);`);
   persistDb();
 
   const app = express();
@@ -172,17 +208,14 @@ async function startServer() {
   const DASHBOARD_DIR = path.join(__dirname, '..', 'hospital-dashboard');
   const SOSBUDDY_DIR = path.join(__dirname, '..', 'sosbuddy');
 
-  // Open the hospital dashboard at the root URL
   app.get('/', (_req, res) => {
     res.sendFile(path.join(DASHBOARD_DIR, 'index.html'));
   });
 
-  // Also allow the dashboard's direct URL
   app.get('/hospital-dashboard', (_req, res) => {
     res.sendFile(path.join(DASHBOARD_DIR, 'index.html'));
   });
 
-  // Serve dashboard assets and the SOS Buddy files
   app.use('/hospital-dashboard', express.static(DASHBOARD_DIR));
   app.use('/sosbuddy', express.static(SOSBUDDY_DIR));
 
@@ -207,7 +240,7 @@ async function startServer() {
   });
 
   // ==========================================
-  // AUTOMATIC QR SCAN ENDPOINT
+  // AUTOMATIC QR SCAN ENDPOINT (Health Emergency)
   // ==========================================
   app.get('/api/scan/:token', (req, res) => {
     try {
@@ -223,6 +256,24 @@ async function startServer() {
       }
       const profileId = tokenRow.profile_id;
 
+      const recent = queryOne(
+        `SELECT * FROM incidents 
+         WHERE profile_id = ? 
+         AND datetime(created_at) > datetime('now','-30 seconds')
+         AND status NOT IN ('RESOLVED', 'CLOSED')`, 
+        [profileId]
+      );
+
+      if (recent) {
+        return res.send(`
+            <div style="font-family:sans-serif; text-align:center; padding:50px;">
+                <h1 style="color:#16a34a;">Emergency Alert Sent Successfully!</h1>
+                <p>The registered hospital has been notified.</p>
+                <p><strong>Incident ID:</strong> ${recent.incident_id}</p>
+            </div>
+        `);
+      }
+
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
       
       if (!latestProfile) {
@@ -236,7 +287,6 @@ async function startServer() {
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
       
-      // Dummy location for map and ambulance dispatch (Chennai)
       const lat = 13.0827; 
       const lng = 80.2707; 
       
@@ -270,7 +320,6 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      // Emit full patient details to dashboard
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
@@ -294,7 +343,7 @@ async function startServer() {
 
       res.send(`
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
-              <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
+              <h1 style="color:#16a34a;">Emergency Alert Sent Successfully!</h1>
               <p>The registered hospital has been notified.</p>
               <p><strong>Incident ID:</strong> ${id}</p>
           </div>
@@ -302,6 +351,56 @@ async function startServer() {
     } catch (err) {
       console.error('QR Scan Error:', err);
       res.status(500).send('Server error: ' + err.message);
+    }
+  });
+
+  // ==========================================
+  // SECURITY SOS ENDPOINT (NEW)
+  // ==========================================
+  app.post('/api/security-sos', (req, res) => {
+    try {
+      const b = req.body || {};
+      const profileId = sanitizeStr(b.profile_id, 60);
+      const name = sanitizeStr(b.name, 120);
+      const age = sanitizeStr(b.age, 10);
+      const phone = sanitizeStr(b.phone, 20);
+      const lat = Number.isFinite(+b.latitude) ? +b.latitude : null;
+      const lng = Number.isFinite(+b.longitude) ? +b.longitude : null;
+      const contacts = Array.isArray(b.contacts) ? JSON.stringify(b.contacts) : '[]';
+
+      if (!name || lat === null || lng === null) {
+        return res.status(400).json({ ok: false, error: 'Name and location are required' });
+      }
+
+      const id = nextSecurityId();
+      const now = nowIso();
+
+      const row = {
+        incident_id: id, profile_id: profileId,
+        name: name, age: age, phone: phone,
+        latitude: lat, longitude: lng,
+        status: 'NEW', contacts: contacts,
+        created_at: now, updated_at: now
+      };
+
+      db.prepare(`INSERT INTO security_incidents (
+        incident_id, profile_id, name, age, phone, latitude, longitude,
+        status, contacts, created_at, updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run([
+        row.incident_id, row.profile_id, row.name, row.age, row.phone,
+        row.latitude, row.longitude, row.status, row.contacts, row.created_at, row.updated_at
+      ]);
+      persistDb();
+
+      const json = securityIncidentRowToJson(row);
+
+      // Notify Hospital Dashboard
+      io.emit("security_emergency", json);
+
+      res.json({ ok: true, incident: json });
+    } catch (err) {
+      console.error('Security SOS Error:', err);
+      res.status(500).json({ ok: false, error: 'Failed to create security incident' });
     }
   });
 
@@ -391,6 +490,12 @@ async function startServer() {
   app.get('/api/incidents', requireStaff, (_req, res) => {
     const rows = queryAll(`SELECT * FROM incidents ORDER BY created_at DESC LIMIT 500`);
     res.json({ ok: true, incidents: rows.map(incidentRowToJson) });
+  });
+
+  // NEW ENDPOINT: Get Security Incidents
+  app.get('/api/security-incidents', requireStaff, (_req, res) => {
+    const rows = queryAll(`SELECT * FROM security_incidents ORDER BY created_at DESC LIMIT 500`);
+    res.json({ ok: true, incidents: rows.map(securityIncidentRowToJson) });
   });
 
   const ALLOWED = new Set(['NEW','ACKNOWLEDGED','IN PROGRESS','RESOLVED','CLOSED']);
