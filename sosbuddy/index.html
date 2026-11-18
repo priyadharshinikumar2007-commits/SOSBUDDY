@@ -338,8 +338,8 @@ svg{max-width:100%;max-height:100%}
 <div id="appRoot" class="app"></div>
 
 <script>
-/* ============================================================ 
-   INLINE QR ENCODER (Kazuhiko Arase, MIT license) 
+/* ============================================================
+   INLINE QR ENCODER (Kazuhiko Arase, MIT license)
    ============================================================ */
 (function(global){
 var __m={};function __def(n,f){__m[n]=f}function __req(p){var n=p.replace('./','');if(n==='QRCode')n='index';var m=__m[n];if(!m.e){m.e={exports:{}};m(m.e,m.e.exports,__req)}return m.e.exports}
@@ -359,14 +359,14 @@ global.QRCode={toCanvas:function(canvas,text,o){o=o||{};var w=o.width||300,mg=o.
 </script>
 
 <script>
-/* ============================================================ 
-   CONFIG 
+/* ============================================================
+   CONFIG
    ============================================================ */
-const SOS_API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
+const SOS_API_BASE = (new URLSearchParams(location.search).get('api')) || 'http://localhost:4000';
 const SOS_API_KEY = 'dev-local-shared-key-change-me';
 
-/* ============================================================ 
-   ICONS 
+/* ============================================================
+   ICONS
    ============================================================ */
 function svg(paths, opts) {
   const o = opts || {};
@@ -415,8 +415,8 @@ const ICONS = {
   fall: svg('<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>')
 };
 
-/* ============================================================ 
-   STORAGE 
+/* ============================================================
+   STORAGE
    ============================================================ */
 const STORAGE_KEYS = {
   HEALTH_PROFILE:'healthProfile',
@@ -452,8 +452,8 @@ function getIncidentHistory(){const r=localStorage.getItem(STORAGE_KEYS.INCIDENT
 function addToHistory(i){const h=getIncidentHistory();if(!h.find(x=>x.incidentId===i.incidentId)){h.unshift(i);if(h.length>20)h.length=20;localStorage.setItem(STORAGE_KEYS.INCIDENT_HISTORY,JSON.stringify(h))}}
 function getProfileId(){let id=localStorage.getItem(STORAGE_KEYS.PROFILE_ID);if(!id){id='P-'+Math.random().toString(36).slice(2,8).toUpperCase()+Date.now().toString(36).toUpperCase().slice(-6);localStorage.setItem(STORAGE_KEYS.PROFILE_ID,id)}return id}
 
-/* ============================================================ 
-   BACKEND 
+/* ============================================================
+   BACKEND
    ============================================================ */
 async function saveProfileToBackend(profile){
   const body={profile_id:getProfileId(),name:profile.name||'',dob:profile.dob||'',
@@ -474,9 +474,11 @@ async function fetchProfileFromBackend(profileId){
   if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
   return data.profile;
 }
+function buildQRPayload(){return location.origin+location.pathname+'#p='+encodeURIComponent(getProfileId())}
+function parseProfileIdFromHash(hash){const m=/[#&]p=([^&]+)/.exec(hash||'');return m?decodeURIComponent(m[1]):null}
 
-/* ============================================================ 
-   QR DRAWING 
+/* ============================================================
+   QR DRAWING
    ============================================================ */
 function drawSOSBadge(canvasEl){
   const ctx=canvasEl.getContext('2d');const size=canvasEl.width;const cx=size/2,cy=size/2;
@@ -509,8 +511,8 @@ function renderFallbackQR(canvasEl,text){
   drawSOSBadge(canvasEl);
 }
 
-/* ============================================================ 
-   SCANNER 
+/* ============================================================
+   SCANNER
    ============================================================ */
 async function startScanner(){
   const v=document.getElementById('scannerVideo');
@@ -537,17 +539,15 @@ function scanLoop(){
 }
 function stopScanner(){if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null}window.__barcodeDetector=null}
 function handleScannedQR(value){
-  if(value.includes('/api/scan/')){
-    window.location.href=value;
-    return;
-  }
+  const id=parseProfileIdFromHash(value);
+  if(id){scannedProfileId=id;navigateTo('emergencyview');return}
   const r=document.getElementById('scannerResult');
-  if(r){r.classList.remove('hidden');r.innerHTML=`<h4><span class="icon">${ICONS.checkCircle}</span> Invalid QR Code</h4><p>${escapeHtml(value)}</p>`}
+  if(r){r.classList.remove('hidden');r.innerHTML=`<h4><span class="icon">${ICONS.checkCircle}</span> QR Code Detected</h4><p>${escapeHtml(value)}</p>`}
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
-/* ============================================================ 
-   NAV 
+/* ============================================================
+   NAV
    ============================================================ */
 function renderBottomNav(){
   const isHome=currentPage==='home',isAlerts=currentPage==='alerts',isQR=currentPage==='qr',
@@ -568,8 +568,8 @@ function renderBottomNav(){
   </nav>`;
 }
 
-/* ============================================================ 
-   PAGES 
+/* ============================================================
+   PAGES
    ============================================================ */
 function renderHomePage(){
   return `<div class="app" style="padding-bottom:85px;">
@@ -590,16 +590,16 @@ function renderHomePage(){
       <p id="sosStatus"></p>
     </section>
     <section class="features">
-      <div class="feature-card" onclick="window.__app.navigateTo('profile')">
+      <div class="feature-card" onclick="window.__app.showEmergencyContactsModal()">
         <div class="feature-icon"><span class="icon">${ICONS.users}</span></div>
         <h3>Emergency Contact</h3><p>People to contact in emergency</p>
       </div>
-      <div class="feature-card" onclick="window.__app.navigateTo('profile')">
+      <div class="feature-card" onclick="window.__app.showHealthProfileModal()">
         <div class="feature-icon"><span class="icon">${ICONS.heart}</span></div>
         <h3>Health Profile</h3><p>Personal & medical details</p>
       </div>
     </section>
-    <section class="monitoring-card">
+    <section class="monitoring-card" onclick="window.__app.showWearableModal()">
       <div class="monitoring-left">
         <div class="monitor-icon"><span class="icon">${ICONS.shield}</span></div>
         <div><h3>Emergency Monitoring</h3><p>System is active</p></div>
@@ -801,6 +801,103 @@ function renderQRPage(){
   </div>`;
 }
 
+function ehpAge(dob){
+  if(!dob)return '';
+  const d=new Date(dob);if(isNaN(d.getTime()))return '';
+  const now=new Date();let age=now.getFullYear()-d.getFullYear();
+  const m=now.getMonth()-d.getMonth();
+  if(m<0||(m===0&&now.getDate()<d.getDate()))age--;
+  const pretty=d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  return age>=0?`${age} years (born ${pretty})`:'';
+}
+
+function renderEmergencyViewPage(){
+  if(!scannedProfileId){
+    return `<div class="app" style="padding-bottom:85px;">
+      <header class="ehp-header"><h1>Emergency Health Profile</h1></header>
+      <div class="ehp-error">
+        <strong>Invalid QR code</strong>
+        The link does not contain a valid profile ID.
+        <br><button onclick="window.__app.navigateTo('qr')">Back to QR page</button>
+      </div></div>`;
+  }
+  if(!scannedProfileCache){
+    return `<div class="app" style="padding-bottom:85px;">
+      <header class="ehp-header"><h1>Emergency Health Profile</h1></header>
+      <div class="ehp-loading"><div class="ehp-spinner"></div>
+        <p>Loading the latest health profile…</p></div></div>`;
+  }
+  if(scannedProfileCache.__error){
+    return `<div class="app" style="padding-bottom:85px;">
+      <header class="ehp-header"><h1>Emergency Health Profile</h1></header>
+      <div class="ehp-error">
+        <strong>Could not load this profile</strong>
+        ${escapeHtml(scannedProfileCache.__error)}
+        <br><button onclick="window.__app.retryEmergencyView()">Try again</button>
+      </div></div>`;
+  }
+  const p=scannedProfileCache;
+  const rows=[
+    {icon:ICONS.user,label:'Full Name',value:p.name,big:true},
+    {icon:ICONS.clock,label:'Age',value:ehpAge(p.dob)},
+    {icon:ICONS.droplet,label:'Blood Group',value:p.blood,big:true},
+    {icon:ICONS.alertTriangle,label:'Known Allergies',value:p.allergies},
+    {icon:ICONS.hospital,label:'Medical Conditions',value:p.conditions},
+    {icon:ICONS.clipboard,label:'Current Medications',value:p.medications},
+    {icon:ICONS.info,label:'Other Important Information',value:p.other_info}
+  ].filter(r=>r.value&&String(r.value).trim());
+  const rowsHtml=rows.map(r=>`
+    <div class="ehp-row">
+      <span class="icon ehp-icon">${r.icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="ehp-label">${r.label}</div>
+        <div class="ehp-value ${r.big?'big':''}">${escapeHtml(String(r.value))}</div>
+      </div>
+    </div>`).join('');
+  const contacts=getEmergencyContacts();
+  const primary=contacts[0];
+  const contactHtml=primary?`
+    <div class="ehp-row">
+      <span class="icon ehp-icon" style="color:var(--bg-sos);background:var(--bg-emergency-icon);">${ICONS.phone}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="ehp-label">Emergency Contact</div>
+        <div class="ehp-value" style="font-size:16px;font-weight:700;">${escapeHtml(primary.name||'Contact')}
+          <span style="display:block;font-size:14px;font-weight:500;color:var(--text-secondary);margin-top:2px;">
+            ${escapeHtml(primary.relationship||'Contact')}
+          </span>
+          <span style="display:block;font-size:15px;font-weight:700;color:var(--bg-security);margin-top:4px;">
+            📞 ${escapeHtml(primary.phone||'--')}
+          </span>
+        </div>
+      </div>
+    </div>`:'';
+  const updatedAt=p.updated_at?new Date(p.updated_at).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+  return `<div class="app" style="padding-bottom:200px;">
+    <header class="ehp-header">
+      <div>
+        <h1>Emergency Health Profile</h1>
+        <p>${updatedAt?`Latest data · updated ${escapeHtml(updatedAt)}`:'Latest data from the SOS Buddy backend'}</p>
+      </div>
+    </header>
+    <div class="ehp-banner">
+      <span class="icon">${ICONS.siren}</span>
+      <h2>EMERGENCY INFORMATION</h2>
+      <p>This is the person's latest saved medical profile.</p>
+    </div>
+    <div class="ehp-card">
+      ${rowsHtml||'<p class="ehp-empty">No health information has been saved for this person.</p>'}
+      ${contactHtml}
+    </div>
+    <div class="ehp-sos-bar">
+      <button id="ehpSosBtn" class="ehp-sos-btn" onclick="window.__app.triggerScannedSOS()">
+        <span class="icon">${ICONS.siren}</span>
+        SOS — REQUEST EMERGENCY HELP
+      </button>
+      <div id="scannedSOSStatus" class="ehp-status" role="status" aria-live="polite"></div>
+    </div>
+  </div>`;
+}
+
 function renderEmergencyPage(){
   const inc=getActiveIncident();
   const profile=getHealthProfile()||{};
@@ -910,8 +1007,8 @@ function renderFallPage(){
   </div>`;
 }
 
-/* ============================================================ 
-   ROUTER 
+/* ============================================================
+   ROUTER
    ============================================================ */
 function renderPage(){
   const root=document.getElementById('appRoot');if(!root)return;
@@ -921,11 +1018,19 @@ function renderPage(){
   else if(currentPage==='alerts')html=renderAlertsPage();
   else if(currentPage==='qr')html=renderQRPage();
   else if(currentPage==='fall')html=renderFallPage();
+  else if(currentPage==='emergencyview')html=renderEmergencyViewPage();
   else if(currentPage==='emergency')html=renderEmergencyPage();
   root.innerHTML=html;
   if(currentPage==='emergency'){const i=getActiveIncident();if(i&&i.status==='ACTIVE')startAlertTracking()}
   if(currentPage==='qr'&&qrTab==='my'){const c=document.getElementById('myQRCanvas');if(c)renderQRCodeToCanvas(c,buildQRPayload())}
   if(currentPage==='qr'&&qrTab==='scan'&&scannerStream)setTimeout(()=>startScanner(),100);
+  if(currentPage==='emergencyview'&&scannedProfileId&&!scannedProfileCache){
+    fetchProfileFromBackend(scannedProfileId).then(p=>{
+      scannedProfileCache=p;renderPage();
+    }).catch(err=>{
+      scannedProfileCache={__error:err.message||'Network error'};renderPage();
+    });
+  }
 }
 function startAlertTracking(){
   const el=document.getElementById('alertStatus');if(!el)return;
@@ -938,217 +1043,354 @@ function startAlertTracking(){
   },5000);
 }
 
-/* ============================================================ 
-   PUBLIC API 
+/* ============================================================
+   PUBLIC API
    ============================================================ */
-function showSOSChoiceModal(){
-  const modal=document.createElement('div');
-  modal.className='modal-overlay';
-  modal.innerHTML=`
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-icon"><span class="icon">${ICONS.siren}</span></div>
-        <h3>Select Emergency Type</h3>
-        <p class="modal-subtitle">Choose the type of emergency you are experiencing.</p>
-      </div>
-      <div class="sos-choice-grid">
-        <button class="sos-choice-btn health" onclick="window.__app.triggerSOS('health')">
-          <div class="choice-icon"><span class="icon">${ICONS.heartPulse}</span></div>
-          <div class="choice-info">
-            <div class="choice-title">Health Emergency</div>
-            <div class="choice-desc">Medical help, ambulance, hospital alert</div>
-          </div>
-        </button>
-        <button class="sos-choice-btn security" onclick="window.__app.triggerSOS('security')">
-          <div class="choice-icon"><span class="icon">${ICONS.securityOfficer}</span></div>
-          <div class="choice-info">
-            <div class="choice-title">Security Emergency</div>
-            <div class="choice-desc">Police, security officer, women's safety</div>
-          </div>
-        </button>
-      </div>
-      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
-        <span class="icon">${ICONS.x}</span> Cancel
-      </button>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
 const app={
   navigateTo(page){
     if(currentPage==='qr'&&page!=='qr')stopScanner();
     currentPage=page;activeTab='health';
+    if(page!=='emergencyview')scannedProfileCache=null;
     renderPage();window.scrollTo({top:0,behavior:'smooth'});
   },
+  retryEmergencyView(){scannedProfileCache=null;renderPage()},
   switchTab(t){activeTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
   switchAlertsTab(t){alertsTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
   switchQRTab(t){if(qrTab==='scan'&&t!=='scan')stopScanner();qrTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
   startScanner(){startScanner()},
   stopScanner(){
     stopScanner();
-    const p=document.getElementById('scannerPlaceholder'),v=document.getElementById('scannerVideo'),o=document.getElementById('scannerOverlay');
-    if(p)p.style.display='flex';if(v)v.style.display='none';if(o)o.style.display='none';
+    const p=document.getElementById('scannerPlaceholder'),v=document.getElementById('scannerVideo'),
+          o=document.getElementById('scannerOverlay'),r=document.getElementById('scannerResult');
+    if(v){v.srcObject=null;v.style.display='none'}
+    if(p)p.style.display='flex';if(o)o.style.display='none';if(r)r.classList.add('hidden');
   },
-  showSOSChoiceModal(){showSOSChoiceModal()},
-  toggleTheme(){toggleTheme()},
-  
-  async saveProfile(){
-    const profile={
-      name:document.getElementById('name').value.trim(),
-      bloodGroup:document.getElementById('bloodGroup').value,
-      allergies:document.getElementById('allergies').value.trim(),
-      medicalConditions:document.getElementById('conditions').value.trim(),
-      dob:document.getElementById('dob').value,
-      medications:document.getElementById('medications').value.trim(),
-      otherInfo:document.getElementById('otherInfo').value.trim()
+  downloadQR(){
+    const c=document.getElementById('myQRCanvas');
+    if(!c){alert('QR code is not available yet.');return}
+    try{const d=c.toDataURL('image/png');const a=document.createElement('a');
+      a.download=`SOSBuddy_QR_${Date.now()}.png`;a.href=d;document.body.appendChild(a);a.click();document.body.removeChild(a);
+    }catch(e){alert('Download failed.')}
+  },
+  async shareQR(){
+    const c=document.getElementById('myQRCanvas');const url=buildQRPayload();
+    if(navigator.share){
+      try{
+        if(c){
+          const b=await new Promise(res=>c.toBlob(res,'image/png'));
+          const f=new File([b],'SOSBuddy_QR.png',{type:'image/png'});
+          if(navigator.canShare&&navigator.canShare({files:[f]})){
+            await navigator.share({title:'My SOS BUDDY QR',text:'Scan to view my emergency profile.\n'+url,files:[f]});return;
+          }
+        }
+        await navigator.share({title:'My SOS BUDDY QR',text:url});return;
+      }catch(e){if(e.name!=='AbortError')console.warn(e)}
+    }
+    try{await navigator.clipboard.writeText(url);alert('Link copied to clipboard.')}
+    catch(e){alert('Sharing not supported. Please download the QR code instead.')}
+  },
+  showSOSChoiceModal(){
+    const ex=document.querySelector('.modal-overlay');if(ex)ex.remove();
+    const o=document.createElement('div');o.className='modal-overlay';
+    o.innerHTML=`<div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon" style="background:var(--bg-emergency-icon);color:var(--bg-sos);">
+          <span class="icon">${ICONS.siren}</span></div>
+        <h3>Emergency Assistance</h3>
+        <p class="modal-subtitle">Choose the type of help you need.</p>
+      </div>
+      <div class="sos-choice-grid">
+        <button class="sos-choice-btn health" onclick="window.__app.triggerSOS('health')">
+          <div class="choice-icon"><span class="icon">${ICONS.heartPulse}</span></div>
+          <div class="choice-info"><div class="choice-title">Health Emergency</div>
+            <div class="choice-desc">Medical assistance — sends your health profile & location.</div></div>
+        </button>
+        <button class="sos-choice-btn security" onclick="window.__app.triggerSOS('security')">
+          <div class="choice-icon"><span class="icon">${ICONS.securityOfficer}</span></div>
+          <div class="choice-info"><div class="choice-title">Security Emergency</div>
+            <div class="choice-desc">Personal safety — alerts your contacts.</div></div>
+        </button>
+      </div>
+      <button class="modal-close" style="background:var(--text-secondary);" onclick="window.__app.closeModal()">
+        <span class="icon">${ICONS.check}</span> Cancel</button>
+    </div>`;
+    o.addEventListener('click',e=>{if(e.target===o)o.remove()});
+    document.body.appendChild(o);
+  },
+  showWearableModal(){
+    const ex=document.querySelector('.modal-overlay');if(ex)ex.remove();
+    const o=document.createElement('div');o.className='modal-overlay';
+    o.innerHTML=`<div class="modal">
+      <div class="modal-header"><div class="modal-icon"><span class="icon">${ICONS.watch}</span></div>
+        <h3>Future Feature</h3><p class="modal-subtitle">Connecting to a wearable device.</p></div>
+      <p style="font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:18px;line-height:1.6;">
+        Once paired, SOS BUDDY will monitor your vitals in real time.</p>
+      <button class="modal-close" onclick="window.__app.closeModal()">
+        <span class="icon">${ICONS.check}</span> Got it</button>
+    </div>`;
+    o.addEventListener('click',e=>{if(e.target===o)o.remove()});
+    document.body.appendChild(o);
+  },
+  showEmergencyContactsModal(){
+    const ex=document.querySelector('.modal-overlay');if(ex)ex.remove();
+    let contacts=getEmergencyContacts();
+    let ch='';
+    if(!contacts.length){ch=`<div class="empty-state">
+      <div class="icon">${ICONS.users}</div><p>No emergency contacts saved yet.</p></div>`}
+    else contacts.forEach(c=>{ch+=`
+      <div class="contact-card">
+        <div class="contact-card-top">
+          <div class="contact-avatar">${(c.name||'?').charAt(0).toUpperCase()}</div>
+          <div class="contact-head-info"><h4>${c.name||'Unknown'}</h4>
+            <span class="relationship-badge">${c.relationship||'Contact'}</span></div>
+        </div>
+        <div class="contact-details">
+          <div class="contact-row"><span class="icon">${ICONS.id}</span>
+            <span class="row-label">ID</span><span class="row-value">${c.id||'--'}</span></div>
+          <div class="contact-row"><span class="icon">${ICONS.phone}</span>
+            <span class="row-label">Phone</span><span class="row-value">${c.phone||'--'}</span></div>
+          <div class="contact-row"><span class="icon">${ICONS.mail}</span>
+            <span class="row-label">Email</span><span class="row-value">${c.email||'--'}</span></div>
+        </div>
+      </div>`});
+    const o=document.createElement('div');o.className='modal-overlay';
+    o.innerHTML=`<div class="modal">
+      <div class="modal-header"><div class="modal-icon"><span class="icon">${ICONS.users}</span></div>
+        <h3>Emergency Contacts</h3>
+        <p class="modal-subtitle">Only visible on your device.</p></div>
+      ${ch}<button class="modal-close" onclick="window.__app.closeModal()">
+        <span class="icon">${ICONS.check}</span> Close</button>
+    </div>`;
+    o.addEventListener('click',e=>{if(e.target===o)o.remove()});
+    document.body.appendChild(o);
+  },
+  showHealthProfileModal(){
+    const ex=document.querySelector('.modal-overlay');if(ex)ex.remove();
+    const p=getHealthProfile();
+    let ph='';
+    if(!p||(!p.name&&!p.bloodGroup)){
+      ph=`<div class="empty-state"><div class="icon">${ICONS.user}</div>
+        <p>No health profile saved yet.</p></div>`;
+    } else {
+      ph=`<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-card-alt);border:1px solid var(--border-color);border-radius:14px;">
+          <span class="icon" style="width:20px;height:20px;color:var(--nav-active);">${ICONS.user}</span>
+          <div style="flex:1;"><div style="font-size:11px;color:var(--text-secondary);">Full Name</div>
+            <div style="font-size:13px;font-weight:600;">${p.name||'Not set'}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-card-alt);border:1px solid var(--border-color);border-radius:14px;">
+          <span class="icon" style="width:20px;height:20px;color:var(--nav-active);">${ICONS.droplet}</span>
+          <div style="flex:1;"><div style="font-size:11px;color:var(--text-secondary);">Blood Group</div>
+            <div style="font-size:13px;font-weight:600;">${p.bloodGroup||'Not set'}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-card-alt);border:1px solid var(--border-color);border-radius:14px;">
+          <span class="icon" style="width:20px;height:20px;color:var(--nav-active);">${ICONS.alertTriangle}</span>
+          <div style="flex:1;"><div style="font-size:11px;color:var(--text-secondary);">Allergies</div>
+            <div style="font-size:13px;font-weight:600;">${p.allergies||'None reported'}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg-card-alt);border:1px solid var(--border-color);border-radius:14px;">
+          <span class="icon" style="width:20px;height:20px;color:var(--nav-active);">${ICONS.hospital}</span>
+          <div style="flex:1;"><div style="font-size:11px;color:var(--text-secondary);">Medical Conditions</div>
+            <div style="font-size:13px;font-weight:600;">${p.medicalConditions||'None reported'}</div></div>
+        </div>
+      </div>`;
+    }
+    const o=document.createElement('div');o.className='modal-overlay';
+    o.innerHTML=`<div class="modal">
+      <div class="modal-header"><div class="modal-icon"><span class="icon">${ICONS.heart}</span></div>
+        <h3>Health Profile</h3><p class="modal-subtitle">Your saved medical information.</p></div>
+      ${ph}<button class="modal-close" onclick="window.__app.closeModal()">
+        <span class="icon">${ICONS.check}</span> Close</button>
+    </div>`;
+    o.addEventListener('click',e=>{if(e.target===o)o.remove()});
+    document.body.appendChild(o);
+  },
+  closeModal(){const o=document.querySelector('.modal-overlay');if(o)o.remove()},
+  viewIncident(id){
+    const a=getActiveIncident();
+    if(a&&a.incidentId===id){this.navigateTo('emergency');return}
+    const h=getIncidentHistory().find(x=>x.incidentId===id);
+    if(h){if(getActiveIncident()){alert(`Incident ${id}\nStatus: ${h.status}\nType: ${h.typeLabel}`);return}saveActiveIncident(h);this.navigateTo('emergency')}
+  },
+  resolveIncident(){
+    const i=getActiveIncident();if(!i)return;
+    if(!confirm('Mark this emergency as resolved?'))return;
+    const now=new Date();const ts=now.toTimeString().split(' ')[0];
+    i.status='RESOLVED';i.responseStatus='Emergency Resolved';
+    i.resolvedAt=ts;i.resolvedAtFull=now.toISOString();
+    i.timeline.push({time:ts,status:'Emergency Resolved',completed:true});
+    i.timeline=i.timeline.map(t=>({...t,completed:true}));
+    addToHistory(i);clearActiveIncident();
+    alert('Emergency marked as resolved.');this.navigateTo('alerts');
+  },
+  triggerSOS(type){
+    const self=this;
+    self.closeModal();
+    const p=getHealthProfile();
+    if(!p||!p.name||!p.bloodGroup){
+      alert('Please complete and save your Health Profile first.');
+      activeTab='health';self.navigateTo('profile');return;
+    }
+    const contacts=getEmergencyContacts();
+    const pc=contacts[0];
+    const ec=pc?`${pc.name} (${pc.phone})`:'--';
+    if(!navigator.geolocation){alert('Location not supported.');return}
+    const s=document.getElementById('sosStatus');
+    if(s)s.innerText='Getting your location...';
+
+    navigator.geolocation.getCurrentPosition(async function(pos){
+      if(s)s.innerText='Sending SOS to hospital...';
+      try{
+        const r=await fetch(SOS_API_BASE+'/api/incidents',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':SOS_API_KEY},
+          body:JSON.stringify({
+            profile_id:getProfileId(),
+            latitude:pos.coords.latitude,
+            longitude:pos.coords.longitude,
+            source:'in-app',
+            idempotency_key:'app-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)
+          })
+        });
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+
+        const inc=data.incident;
+        const t=new Date(inc.created_at).toTimeString().split(' ')[0];
+        const localIncident={
+          incidentId:inc.incident_id,
+          status:'ACTIVE',
+          sosType:type,
+          typeLabel:type==='health'?'Health Emergency':'Security Emergency',
+          name:inc.name, bloodGroup:inc.blood, allergies:inc.allergies,
+          medicalConditions:inc.conditions, emergencyContact:ec,
+          latitude:inc.latitude, longitude:inc.longitude,
+          createdAt:t, createdAtFull:inc.created_at,
+          responseStatus:'Waiting for response',
+          timeline:[
+            {time:t, status:(type==='health'?'Health Emergency':'Security Emergency')+' Triggered', completed:true},
+            {time:t, status:'Person Identified', completed:true},
+            {time:t, status:'Location Confirmed', completed:true},
+            {time:t, status:'Emergency Contact Notified', completed:false},
+            {time:t, status:'Response Requested', completed:false}
+          ]
+        };
+        saveActiveIncident(localIncident);
+        if(s)s.innerText='✔ SOS sent to hospital — Incident '+inc.incident_id;
+        self.navigateTo('emergency');
+      }catch(err){
+        console.error('SOS send failed',err);
+        if(s)s.innerText='✖ Could not reach hospital. Call 112.';
+        alert('Could not reach the hospital backend. Please call 112.\n\n'+(err.message||err));
+      }
+    },function(err){
+      alert('Unable to get your location.');if(s)s.innerText='';
+    });
+  },
+  async triggerScannedSOS(){
+    const btn=document.getElementById('ehpSosBtn');
+    const statusEl=document.getElementById('scannedSOSStatus');
+    const say=h=>{if(statusEl)statusEl.innerHTML=h};
+    if(!scannedProfileId){say('No profile loaded.');return}
+    if(scanSOSBusy)return;
+    scanSOSBusy=true;
+    if(btn){btn.disabled=true;btn.textContent='SENDING SOS…'}
+    say('Sending SOS to hospital…');
+    if(!window.__sosIdemKey)window.__sosIdemKey='idem-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);
+    const send=async(lat,lng)=>{
+      try{
+        const r=await fetch(SOS_API_BASE+'/api/incidents',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':SOS_API_KEY},
+          body:JSON.stringify({profile_id:scannedProfileId,
+            latitude:typeof lat==='number'?lat:null,longitude:typeof lng==='number'?lng:null,
+            source:'qr-scan',idempotency_key:window.__sosIdemKey})
+        });
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+        const inc=data.incident;
+        const dup=data.deduplicated?' <em>(Existing incident reused.)</em>':'';
+        const loc=inc.latitude!=null?'Location attached.':'Location not provided.';
+        say(`<strong>✔ Hospital received your SOS</strong> — Incident <strong>${escapeHtml(inc.incident_id)}</strong>${dup}<br>${loc}<br><br>If life-threatening, also call <a class="ehp-call" href="tel:112">📞 112</a>.`);
+        if(btn)btn.textContent='✔ SOS SENT TO HOSPITAL';
+      }catch(err){
+        say(`<strong style="color:#b91c1c;">✖ Could not reach the hospital.</strong><br>Please call: <a class="ehp-call" href="tel:112">📞 112</a><br><small style="color:#64748b;">(${escapeHtml(err.message||'network error')})</small>`);
+        scanSOSBusy=false;window.__sosIdemKey=null;
+        if(btn){btn.disabled=false;btn.textContent='🆘 SOS — RETRY'}
+      }
     };
-    const status=document.getElementById('profileStatus');
-    status.textContent='Saving...';status.style.color='var(--text-secondary)';
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        pos=>send(pos.coords.latitude,pos.coords.longitude),
+        ()=>send(null,null),
+        {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
+    } else send(null,null);
+  },
+  async saveProfile(){
+    const name=document.getElementById('name')?.value.trim()||'';
+    const bloodGroup=document.getElementById('bloodGroup')?.value||'';
+    const allergies=document.getElementById('allergies')?.value.trim()||'';
+    const conditions=document.getElementById('conditions')?.value.trim()||'';
+    const dob=document.getElementById('dob')?.value||'';
+    const medications=document.getElementById('medications')?.value.trim()||'';
+    const otherInfo=document.getElementById('otherInfo')?.value.trim()||'';
+    const statusEl=document.getElementById('profileStatus');
+    if(!name||!bloodGroup){if(statusEl)statusEl.innerText='Please fill in Name and Blood Group.';return}
+    const profile={name,bloodGroup,allergies,medicalConditions:conditions,dob,medications,otherInfo,
+      emergencyContact:getEmergencyContacts()[0]?.phone||''};
+    saveHealthProfile(profile);
+    if(statusEl){statusEl.innerText='Saving to server…';statusEl.style.color='var(--text-secondary)'}
     try{
       await saveProfileToBackend(profile);
-      saveHealthProfile(profile);
-      status.textContent='Profile saved successfully!';status.style.color='var(--success-text)';
+      if(statusEl){statusEl.innerText='✔ Profile saved.';statusEl.style.color='var(--success-text)'}
     }catch(err){
-      status.textContent='Failed to save: '+err.message;status.style.color='var(--bg-sos)';
+      if(statusEl){statusEl.innerText='Saved locally, but server sync failed: '+err.message;statusEl.style.color='#dc2626'}
     }
+    setTimeout(()=>{if(statusEl){statusEl.innerText='';statusEl.style.color=''}},4000);
   },
-
-  addContact(){
-    const contacts=getEmergencyContacts();
-    contacts.push({id:'',name:'',relationship:'',phone:'',email:''});
-    saveEmergencyContacts(contacts);
-    renderPage();
-  },
-
-  removeContact(index){
-    const contacts=getEmergencyContacts();
-    contacts.splice(index,1);
-    saveEmergencyContacts(contacts);
-    renderPage();
-  },
-
   saveContacts(){
+    const items=document.querySelectorAll('.contact-form-item');
     const contacts=[];
-    document.querySelectorAll('.contact-form-item').forEach(el=>{
-      contacts.push({
-        id: el.querySelector('.contact-id').value.trim(),
-        name: el.querySelector('.contact-name').value.trim(),
-        relationship: el.querySelector('.contact-relationship').value.trim(),
-        phone: el.querySelector('.contact-phone').value.trim(),
-        email: el.querySelector('.contact-email').value.trim()
-      });
+    const statusEl=document.getElementById('profileStatus');
+    items.forEach((it,i)=>{
+      const id=it.querySelector('.contact-id')?.value.trim()||'';
+      const name=it.querySelector('.contact-name')?.value.trim()||'';
+      const relationship=it.querySelector('.contact-relationship')?.value.trim()||'';
+      const phone=it.querySelector('.contact-phone')?.value.trim()||'';
+      const email=it.querySelector('.contact-email')?.value.trim()||'';
+      if(name&&phone)contacts.push({id:id||`EC-${String(i+1).padStart(3,'0')}`,name,relationship:relationship||'Contact',phone,email});
     });
+    if(!contacts.length){if(statusEl)statusEl.innerText='Add at least one contact with name and phone.';return}
     saveEmergencyContacts(contacts);
-    const status=document.getElementById('profileStatus');
-    if(status){status.textContent='Emergency contacts saved!';status.style.color='var(--success-text)';}
+    if(statusEl)statusEl.innerText='Emergency contacts saved!';
+    setTimeout(()=>{if(statusEl)statusEl.innerText=''},3000);
   },
-
-  downloadQR(){
-    const canvas=document.getElementById('myQRCanvas');
-    if(!canvas)return;
-    const link=document.createElement('a');
-    link.download='sos-buddy-qr.png';
-    link.href=canvas.toDataURL('image/png');
-    link.click();
+  addContact(){
+    const c=getEmergencyContacts();
+    c.push({id:`EC-${String(c.length+1).padStart(3,'0')}`,name:'',relationship:'',phone:'',email:''});
+    saveEmergencyContacts(c);renderPage();
+    window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
   },
-  
-  shareQR(){
-    const canvas=document.getElementById('myQRCanvas');
-    if(!canvas)return;
-    canvas.toBlob(blob=>{
-      if(navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],'qr.png',{type:'image/png'})]})){
-        navigator.share({files:[new File([blob],'sos-buddy-qr.png',{type:'image/png'})],title:'SOS Buddy QR'}).catch(()=>{});
-      }else{
-        alert('Sharing is not supported on this device. Please download the QR code instead.');
-      }
-    });
-  },
-
-  async triggerSOS(sosType){
-    const status=document.getElementById('sosStatus');
-    if(status){ status.textContent = 'Sending SOS...'; status.style.color = 'var(--text-secondary)'; }
-    
-    try {
-      const position = await new Promise((resolve, reject) => {
-        if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:10000 });
-      });
-
-      const profile = getHealthProfile() || {};
-      const incidentId = 'INC-' + Date.now().toString(36).toUpperCase();
-      
-      const payload = {
-        incident_id: incidentId,
-        profile_id: getProfileId(),
-        sos_type: sosType,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        name: profile.name || 'Unknown',
-        blood: profile.bloodGroup || '',
-        allergies: profile.allergies || '',
-        conditions: profile.medicalConditions || '',
-        medications: profile.medications || ''
-      };
-
-      const res = await fetch(SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId()), {
-        method:'GET'
-      });
-      
-      const incident = {
-        incidentId,
-        sosType,
-        typeLabel: sosType === 'security' ? 'Security Emergency' : 'Health Emergency',
-        status:'ACTIVE',
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        createdAtFull: new Date().toISOString(),
-        emergencyContact: (getEmergencyContacts()[0] || {}).phone || '--',
-        timeline: [
-          { status: sosType === 'security' ? 'Security Emergency Triggered' : 'Health Emergency Triggered', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Person Identified', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Location Confirmed', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Emergency Contact Notified', completed:false, time:'' },
-          { status:'Response Requested', completed:false, time:'' }
-        ]
-      };
-      saveActiveIncident(incident);
-      addToHistory(incident);
-      
-      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
-      currentPage = 'emergency';
-      renderPage();
-
-    } catch(err) {
-      if(status){ status.textContent = 'SOS failed: ' + err.message; status.style.color = 'var(--bg-sos)'; }
-      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
-      alert('Could not send SOS: ' + err.message);
-    }
-  },
-
-  resolveIncident(){
-    const inc = getActiveIncident();
-    if(!inc) return;
-    inc.status = 'RESOLVED';
-    inc.timeline = inc.timeline.map(t => ({...t, completed:true, time: t.time || new Date().toLocaleTimeString()}));
-    inc.timeline.push({ status:'Emergency Resolved', completed:true, time:new Date().toLocaleTimeString() });
-    saveActiveIncident(inc);
-    addToHistory(inc);
-    renderPage();
-  },
-
-  viewIncident(incidentId){
-    const inc = getActiveIncident();
-    if(inc && inc.incidentId === incidentId){ currentPage = 'emergency'; renderPage(); return; }
-    const found = getIncidentHistory().find(i => i.incidentId === incidentId);
-    if(found){ saveActiveIncident(found); currentPage = 'emergency'; renderPage(); }
+  removeContact(i){
+    const c=getEmergencyContacts();
+    if(i>=0&&i<c.length){c.splice(i,1);saveEmergencyContacts(c);renderPage()}
   }
 };
 
-function buildQRPayload(){
-  return SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId());
+/* ============================================================
+   INIT
+   ============================================================ */
+function init(){
+  window.__app=app;
+  currentPage='home';activeTab='health';alertsTab='active';qrTab='my';
+  const pid=parseProfileIdFromHash(location.hash);
+  if(pid){scannedProfileId=pid;currentPage='emergencyview'}
+  renderPage();
+  console.log('SOS BUDDY loaded — backend:',SOS_API_BASE);
 }
-
-window.__app = app;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
+else init();
+window.addEventListener('beforeunload',stopScanner);
 </script>
 </body>
 </html>

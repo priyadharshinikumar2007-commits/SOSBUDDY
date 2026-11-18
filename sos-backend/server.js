@@ -121,7 +121,6 @@ async function startServer() {
     console.log('Created new DB:', DB_PATH);
   }
 
-  // Preserve existing tables and add new QR tokens table
   db.run(`
     CREATE TABLE IF NOT EXISTS patients (
       profile_id TEXT PRIMARY KEY, name TEXT, dob TEXT, blood TEXT,
@@ -167,11 +166,10 @@ async function startServer() {
   // ==========================================
   // STATIC FILE SERVING
   // ==========================================
-  // Serve the frontend directories
-  app.use('/hospital-dashboard', express.static(path.join(__dirname, '../hospital-dashboard')));
-  app.use('/sosbuddy', express.static(path.join(__dirname, '../sosbuddy')));
+  app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  // Redirect the root URL to the hospital dashboard automatically
+  // Root URL goes to hospital dashboard
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
   });
@@ -204,43 +202,26 @@ async function startServer() {
       const rawToken = req.params.token;
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
-      // 1. Verify Token
       const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      
-      // Fallback for testing if no tokens exist yet
-      let profileId = tokenRow ? tokenRow.profile_id : 'P-DEFAULT'; 
+      let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
 
-      // 2. Deduplication (Prevent duplicate active incidents within 60 seconds)
-      const recent = queryOne(
-        `SELECT * FROM incidents 
-         WHERE profile_id = ? 
-         AND datetime(created_at) > datetime('now','-60 seconds')
-         AND status != 'RESOLVED' AND status != 'CLOSED'`, 
-        [profileId]
-      );
-
-      if (recent) {
-        return res.json({ 
-            success: true, 
-            incidentId: recent.incident_id, 
-            deliveryStatus: recent.delivery_status,
-            isDuplicate: true
-        });
-      }
-
-      // 3. Create Incident
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
+      
+      if (!latestProfile) {
+        latestProfile = { 
+            name: 'Unknown Patient', dob: '', blood: '', 
+            allergies: '', conditions: '', medications: '', other_info: '' 
+        };
+      }
 
       const id = nextIncidentId();
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
       
-      // Location rules: Fallback to victim's registered address, else Unavailable.
-      // NEVER request bystander GPS.
-      const lat = null; 
-      const lng = null; 
-      const locationText = latestProfile.address || 'Registered Address Unavailable';
+      const lat = 13.0827; 
+      const lng = 80.2707; 
+      
+      const locationText = 'Registered Address Unavailable';
 
       const row = {
         incident_id: id, profile_id: profileId, 
@@ -270,11 +251,15 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      // 4. Notify Dashboard via Socket.IO
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
+        dob: row.dob,
         age: row.age,
+        blood: row.blood,
+        allergies: row.allergies,
+        conditions: row.conditions,
+        medications: row.medications,
         scanTime: now,
         location: {
             source: row.location_source,
@@ -285,21 +270,21 @@ async function startServer() {
         }
       });
 
-      // 5. Notify Dashboard via SSE (Fallback)
       broadcast('incident', json);
 
-      res.json({ 
-        success: true, 
-        incidentId: id, 
-        deliveryStatus: 'DELIVERED' 
-      });
+      res.send(`
+          <div style="font-family:sans-serif; text-align:center; padding:50px;">
+              <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
+              <p>The registered hospital has been notified.</p>
+              <p><strong>Incident ID:</strong> ${id}</p>
+          </div>
+      `);
     } catch (err) {
       console.error('QR Scan Error:', err);
-      res.status(500).json({ success: false, error: 'Server error' });
+      res.status(500).send('Server error: ' + err.message);
     }
   });
 
-  // Helper to generate QR token (For testing)
   app.get('/api/generate-qr/:profile_id', (req, res) => {
     const profileId = req.params.profile_id;
     const rawToken = crypto.randomBytes(16).toString('hex');
@@ -316,7 +301,6 @@ async function startServer() {
     });
   });
 
-  // Existing Profile APIs
   app.post('/api/profiles', requireApiKey, (req, res) => {
     try {
       const b = req.body || {};
