@@ -166,11 +166,10 @@ async function startServer() {
   // ==========================================
   // STATIC FILE SERVING
   // ==========================================
-  // Serve the frontend directories
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  // Root URL goes to hospital dashboard (as requested)
+  // Root URL goes to hospital dashboard
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
   });
@@ -219,7 +218,6 @@ async function startServer() {
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
       
-      // Dummy location for map and ambulance dispatch (Chennai)
       const lat = 13.0827; 
       const lng = 80.2707; 
       
@@ -253,7 +251,6 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      // Emit full patient details
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
