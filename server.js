@@ -386,9 +386,6 @@ startServer().catch(err => { console.error('Fatal:', err); process.exit(1); });
 const express = require('express');
 const path = require('path');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
 // Serve the sosbuddy folder as static files
 app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
