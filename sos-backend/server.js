@@ -93,15 +93,6 @@ function profileRowToJson(r) {
     other_info: r.other_info || '', updated_at: r.updated_at
   };
 }
-
-// The dashboard uses "New", "Acknowledged", "In Progress"... (capitalised normally).
-// This maps any stored value (old uppercase rows too) to that form.
-const STATUS_MAP = {
-  'NEW': 'New', 'ACKNOWLEDGED': 'Acknowledged', 'IN PROGRESS': 'In Progress',
-  'DISPATCHED': 'Dispatched', 'RESOLVED': 'Resolved', 'CLOSED': 'Closed'
-};
-function normStatus(s) { return STATUS_MAP[String(s || '').trim().toUpperCase()] || 'New'; }
-
 function incidentRowToJson(r) {
   if (!r) return null;
   return {
@@ -111,7 +102,7 @@ function incidentRowToJson(r) {
     conditions: r.conditions || '', medications: r.medications || '',
     other_info: r.other_info || '',
     latitude: r.latitude, longitude: r.longitude,
-    status: normStatus(r.status), created_at: r.created_at, updated_at: r.updated_at,
+    status: r.status, created_at: r.created_at, updated_at: r.updated_at,
     source: r.source || '',
     location_source: r.location_source || 'unavailable',
     location_owner: r.location_owner || 'unknown',
@@ -160,7 +151,7 @@ async function startServer() {
       created_at TEXT NOT NULL
     );
   `);
-
+  
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_profile ON incidents(profile_id);`);
   persistDb();
@@ -173,27 +164,15 @@ async function startServer() {
   app.use(express.json({ limit: '64kb' }));
 
   // ==========================================
-  // STATIC FILE SERVING (backend URL opens the hospital dashboard)
+  // STATIC FILE SERVING
   // ==========================================
-  function findFolder(name) {
-    const candidates = [path.join(__dirname, name), path.join(__dirname, '..', name), path.join(process.cwd(), name)];
-    return candidates.find(p => fs.existsSync(path.join(p, 'index.html'))) || null;
-  }
-  const DASH_DIR = findFolder('hospital-dashboard');
-  const APP_DIR = findFolder('sosbuddy');
-  console.log('Dashboard folder:', DASH_DIR || 'NOT FOUND', '| SOS Buddy folder:', APP_DIR || 'NOT FOUND');
+  app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
+  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  function sendPage(dir, res) {
-    if (!dir) return res.status(404).send('Page not found. Push the hospital-dashboard / sosbuddy folder to GitHub.');
-    let html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
-    // pages call the backend on whatever address the browser used, not localhost
-    html = html.split("'http://localhost:4000'").join('location.origin')
-               .split('"http://localhost:4000"').join('location.origin');
-    res.set('Cache-Control', 'no-store').type('html').send(html);
-  }
-  app.get('/', (req, res) => sendPage(DASH_DIR, res));
-  app.get(['/hospital-dashboard', '/hospital-dashboard/', '/hospital-dashboard/index.html'], (req, res) => sendPage(DASH_DIR, res));
-  app.get(['/sosbuddy', '/sosbuddy/', '/sosbuddy/index.html'], (req, res) => sendPage(APP_DIR, res));
+  // Root URL goes to hospital dashboard
+  app.get('/', (req, res) => {
+    res.redirect('/hospital-dashboard/index.html');
+  });
 
   const sseClients = new Set();
   function broadcast(event, data) {
@@ -224,29 +203,29 @@ async function startServer() {
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
       const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      let profileId = tokenRow ? tokenRow.profile_id : rawToken;
+      let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
 
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-
+      
       if (!latestProfile) {
-        latestProfile = {
-            name: 'Unknown Patient', dob: '', blood: '',
-            allergies: '', conditions: '', medications: '', other_info: ''
+        latestProfile = { 
+            name: 'Unknown Patient', dob: '', blood: '', 
+            allergies: '', conditions: '', medications: '', other_info: '' 
         };
       }
 
       const id = nextIncidentId();
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
-
+      
       // Dummy location for map and ambulance dispatch (Chennai)
-      const lat = 13.0827;
-      const lng = 80.2707;
-
+      const lat = 13.0827; 
+      const lng = 80.2707; 
+      
       const locationText = 'Registered Address Unavailable';
 
       const row = {
-        incident_id: id, profile_id: profileId,
+        incident_id: id, profile_id: profileId, 
         name: latestProfile.name || 'Unknown', dob: latestProfile.dob || '', age: age,
         blood: latestProfile.blood || '', allergies: latestProfile.allergies || '',
         conditions: latestProfile.conditions || '', medications: latestProfile.medications || '',
@@ -313,12 +292,12 @@ async function startServer() {
     const rawToken = crypto.randomBytes(16).toString('hex');
     const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const now = nowIso();
-
+    
     db.prepare(`INSERT INTO qr_tokens (profile_id, token_hash, created_at) VALUES (?,?,?)`).run([profileId, hash, now]);
     persistDb();
-
-    res.json({
-      success: true,
+    
+    res.json({ 
+      success: true, 
       url: `https://sos-backend-production-0e25.up.railway.app/api/scan/${rawToken}`,
       token: rawToken
     });
@@ -378,10 +357,11 @@ async function startServer() {
     res.json({ ok: true, incidents: rows.map(incidentRowToJson) });
   });
 
+  const ALLOWED = new Set(['NEW','ACKNOWLEDGED','IN PROGRESS','RESOLVED','CLOSED']);
   app.patch('/api/incidents/:id', requireStaff, (req, res) => {
     const { id } = req.params;
-    if (!req.body?.status) return res.status(400).json({ ok: false, error: 'Invalid status' });
-    const status = normStatus(sanitizeStr(req.body.status, 40));
+    const status = sanitizeStr(req.body?.status, 40);
+    if (!ALLOWED.has(status)) return res.status(400).json({ ok: false, error: 'Invalid status' });
     const row = queryOne(`SELECT * FROM incidents WHERE incident_id = ?`, [id]);
     if (!row) return res.status(404).json({ ok: false, error: 'Not found' });
     run(`UPDATE incidents SET status = ?, updated_at = ? WHERE incident_id = ?`,

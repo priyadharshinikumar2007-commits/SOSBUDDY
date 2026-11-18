@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // Serve the sosbuddy folder as static files
 app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-// Root URL goes directly to SOS Buddy
+// Root URL goes directly to SOS Buddy (User App)
 app.get('/', (req, res) => {
   res.redirect('/sosbuddy/index.html');
 });
