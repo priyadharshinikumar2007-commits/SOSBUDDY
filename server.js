@@ -178,8 +178,8 @@ async function startServer() {
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  app.get('/', (req, res) => {
-    res.redirect('/sosbuddy/index.html');
+  app.get('/', (_req, res) => {
+    res.redirect('/hospital-dashboard/');
   });
 
   const sseClients = new Set();
