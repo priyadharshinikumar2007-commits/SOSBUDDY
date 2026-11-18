@@ -169,7 +169,6 @@ async function startServer() {
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  // Root URL goes to hospital dashboard
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
   });
