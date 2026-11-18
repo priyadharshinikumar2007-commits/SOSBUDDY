@@ -163,10 +163,11 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
 
-     // ==========================================
+  // ==========================================
   // STATIC FILE SERVING
   // ==========================================
   const DASHBOARD_DIR = path.join(__dirname, '..', 'hospital-dashboard');
+  const SOSBUDDY_DIR = path.join(__dirname, '..', 'sosbuddy');
 
   // Open the hospital dashboard at the root URL
   app.get('/', (_req, res) => {
@@ -180,8 +181,28 @@ async function startServer() {
 
   // Serve dashboard assets and the SOS Buddy files
   app.use('/hospital-dashboard', express.static(DASHBOARD_DIR));
-  app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
-// ...existing code...
+  app.use('/sosbuddy', express.static(SOSBUDDY_DIR));
+
+  const sseClients = new Set();
+  function broadcast(event, data) {
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of sseClients) { try { res.write(payload); } catch (_) {} }
+  }
+
+  app.get('/api/stream', requireStaff, (req, res) => {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders?.();
+    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true })}\n\n`);
+    sseClients.add(res);
+    const ping = setInterval(() => { try { res.write(`: ping\n\n`); } catch (_) {} }, 25000);
+    req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
+  });
+
   // ==========================================
   // AUTOMATIC QR SCAN ENDPOINT
   // ==========================================
@@ -206,6 +227,7 @@ async function startServer() {
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
       
+      // Dummy location for map and ambulance dispatch (Chennai)
       const lat = 13.0827; 
       const lng = 80.2707; 
       
@@ -239,6 +261,7 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
+      // Emit full patient details to dashboard
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
