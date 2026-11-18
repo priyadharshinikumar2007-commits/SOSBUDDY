@@ -164,14 +164,16 @@ async function startServer() {
   app.use(express.json({ limit: '64kb' }));
 
   // ==========================================
-  // STATIC FILE SERVING & ROUTING FIXES
+  // STATIC FILE SERVING
   // ==========================================
+  // Serve the frontend directories
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
+  // Root URL goes to hospital dashboard (as requested)
   app.get('/', (req, res) => {
     res.redirect('/hospital-dashboard/index.html');
-});
+  });
 
   const sseClients = new Set();
   function broadcast(event, data) {
@@ -202,35 +204,26 @@ async function startServer() {
       const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
       const tokenRow = queryOne(`SELECT * FROM qr_tokens WHERE token_hash = ? AND active = 1`, [hash]);
-      let profileId = tokenRow ? tokenRow.profile_id : 'P-DEFAULT'; 
-
-      const recent = queryOne(
-        `SELECT * FROM incidents 
-         WHERE profile_id = ? 
-         AND datetime(created_at) > datetime('now','-60 seconds')
-         AND status != 'RESOLVED' AND status != 'CLOSED'`, 
-        [profileId]
-      );
-
-      if (recent) {
-        return res.send(`
-            <div style="font-family:sans-serif; text-align:center; padding:50px;">
-                <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
-                <p>The registered hospital has been notified.</p>
-                <p><strong>Incident ID:</strong> ${recent.incident_id}</p>
-            </div>
-        `);
-      }
+      let profileId = tokenRow ? tokenRow.profile_id : rawToken; 
 
       let latestProfile = queryOne(`SELECT * FROM patients WHERE profile_id = ?`, [profileId]);
-      if (!latestProfile) latestProfile = { name: 'Unknown Patient', dob: '', blood: '', allergies: '', conditions: '', medications: '', other_info: '' };
+      
+      if (!latestProfile) {
+        latestProfile = { 
+            name: 'Unknown Patient', dob: '', blood: '', 
+            allergies: '', conditions: '', medications: '', other_info: '' 
+        };
+      }
 
       const id = nextIncidentId();
       const now = nowIso();
       const age = computeAge(latestProfile.dob);
-      const lat = null; 
-      const lng = null; 
-      const locationText = latestProfile.address || 'Registered Address Unavailable';
+      
+      // Dummy location for map and ambulance dispatch (Chennai)
+      const lat = 13.0827; 
+      const lng = 80.2707; 
+      
+      const locationText = 'Registered Address Unavailable';
 
       const row = {
         incident_id: id, profile_id: profileId, 
@@ -260,7 +253,7 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
-      // === Ithu thaan main change: Ellamey anuppu ===
+      // Emit full patient details
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
@@ -286,13 +279,12 @@ async function startServer() {
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
               <h1 style="color:#16a34a;">EMERGENCY ALERT SENT SUCCESSFULLY</h1>
               <p>The registered hospital has been notified.</p>
-              <p>Thank you for helping. Your action may save a life.</p>
               <p><strong>Incident ID:</strong> ${id}</p>
           </div>
       `);
     } catch (err) {
       console.error('QR Scan Error:', err);
-      res.status(500).send('Server error');
+      res.status(500).send('Server error: ' + err.message);
     }
   });
 
