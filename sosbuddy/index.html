@@ -543,6 +543,11 @@ function handleScannedQR(value){
   if(id){scannedProfileId=id;navigateTo('emergencyview');return}
   const r=document.getElementById('scannerResult');
   if(r){r.classList.remove('hidden');r.innerHTML=`<h4><span class="icon">${ICONS.checkCircle}</span> QR Code Detected</h4><p>${escapeHtml(value)}</p>`}
+  // In the SOSBuddy QR scan callback
+  const decodedQrText=value;
+  const response = await fetch(decodedQrText);
+  if (!response.ok) throw new Error('SOS scan failed');
+  // Show a confirmation inside SOSBuddy; do not navigate away.
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
@@ -1391,6 +1396,3 @@ function init(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
 else init();
 window.addEventListener('beforeunload',stopScanner);
-</script>
-</body>
-</html>
