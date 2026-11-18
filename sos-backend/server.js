@@ -163,37 +163,19 @@ async function startServer() {
   app.use(cors());
   app.use(express.json({ limit: '64kb' }));
 
-  // ==========================================
+    // ==========================================
   // STATIC FILE SERVING
   // ==========================================
-  app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
+  const DASHBOARD_DIR = path.join(__dirname, '..', 'hospital-dashboard');
+
+  app.use('/hospital-dashboard', express.static(DASHBOARD_DIR));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
-  // Root URL goes to hospital dashboard
-  app.get('/', (req, res) => {
-    res.redirect('/hospital-dashboard/index.html');
+  // Open the hospital dashboard at the backend's root URL
+  app.get('/', (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, 'index.html'));
   });
-
-  const sseClients = new Set();
-  function broadcast(event, data) {
-    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-    for (const res of sseClients) { try { res.write(payload); } catch (_) {} }
-  }
-
-  app.get('/api/stream', requireStaff, (req, res) => {
-    res.set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no'
-    });
-    res.flushHeaders?.();
-    res.write(`event: hello\ndata: ${JSON.stringify({ ok: true })}\n\n`);
-    sseClients.add(res);
-    const ping = setInterval(() => { try { res.write(`: ping\n\n`); } catch (_) {} }, 25000);
-    req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
-  });
-
+// ...existing code...
   // ==========================================
   // AUTOMATIC QR SCAN ENDPOINT
   // ==========================================
