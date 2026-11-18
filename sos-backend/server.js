@@ -11,10 +11,14 @@ const { Server } = require("socket.io");
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
-const SOS_API_KEY = process.env.SOS_API_KEY || 'dev-local-shared-key-change-me';
-const STAFF_USER = process.env.STAFF_USER || 'hospital';
-const STAFF_PASS = process.env.STAFF_PASS || 'hospital123';
+const SOS_API_KEY = process.env.SOS_API_KEY;
+const STAFF_USER = process.env.STAFF_USER;
+const STAFF_PASS = process.env.STAFF_PASS;
 
+if (!SOS_API_KEY || !STAFF_USER || !STAFF_PASS) {
+  throw new Error('Set SOS_API_KEY, STAFF_USER, and STAFF_PASS in Railway Variables');
+}
+// ...existing code...
 const DB_PATH = path.join(__dirname, 'incidents.db');
 let db = null;
 
