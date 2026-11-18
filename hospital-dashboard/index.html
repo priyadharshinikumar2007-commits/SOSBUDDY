@@ -659,29 +659,29 @@ function refreshMap(){
 }
 function renderDispatchList() {
   const list = document.getElementById('dispatchList');
-  const sel = getSelected();
 
-  const message = !sel
-    ? 'Select an incident above to try the demo dispatch controls.'
-    : 'DEMO ONLY — this does not contact or dispatch a real ambulance.';
+  list.innerHTML = AMBULANCES.map(a => {
+    const assigned = a.status === 'dispatched';
+    const distance = Number.isFinite(a.distanceKm)
+      ? ` · ${a.distanceKm.toFixed(1)} km`
+      : '';
 
-  list.innerHTML =
-    '<div style="padding:6px 0;font-size:11px;color:#986307;font-weight:700">' +
-    message +
-    '</div>' +
-    AMBULANCES.map(a => {
-      const dispatched = a.status === 'dispatched';
-      return '<div class="dispatch-row">' +
-        '<div class="avatar">' + safe(a.id.slice(-2)) + '</div>' +
-        '<div class="info"><strong>' + safe(a.name) + '</strong>' +
-        '<small>' + safe(a.hospital) + ' · Demo unit</small></div>' +
-        '<div class="dist">' + (dispatched ? 'Demo status' : '') + '</div>' +
-        '<button ' + ((!sel || dispatched) ? 'disabled' : '') +
-        ' onclick="dispatchAmbulance(\'' + safe(a.id) + '\')">' +
-        '<svg><use href="#i-ambulance"/></svg>' +
-        (dispatched ? 'On the way' : 'Dispatch demo') +
-        '</button></div>';
-    }).join('');
+    return `
+      <div class="dispatch-row">
+        <div class="avatar">${safe(a.id.slice(-2))}</div>
+        <div class="info">
+          <strong>${safe(a.name)}</strong>
+          <small>${assigned
+            ? `Hospital: ${safe(a.assignedHospital)}${distance}`
+            : 'Available'}</small>
+        </div>
+        <button ${assigned ? 'disabled' : ''}
+          onclick="dispatchAmbulance('${safe(a.id)}')">
+          <svg><use href="#i-ambulance"/></svg>
+          ${assigned ? 'Dispatched' : 'Dispatch'}
+        </button>
+      </div>`;
+  }).join('');
 }
 function placeAmbulancesAround(inc){
   if(inc.latitude == null || inc.longitude == null) return;
@@ -697,14 +697,27 @@ function haversineKm(lat1,lng1,lat2,lng2){
   const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
-function dispatchAmbulance(ambId){
-  const sel = getSelected();
-  if(!sel) return;
-  const amb = AMBULANCES.find(a => a.id===ambId);
-  if(!amb) return;
-  amb.status = 'dispatched';
-  showToast(amb.name+' dispatched to '+sel.incident_id+'.');
-  updateStatus(sel.incident_id, 'IN PROGRESS');
+function dispatchAmbulance(ambId) {
+  const ambulance = AMBULANCES.find(a => a.id === ambId);
+  if (!ambulance || ambulance.lat == null || ambulance.lng == null ||
+      HOSPITAL.lat == null || HOSPITAL.lng == null) {
+    showToast('Hospital or ambulance location is unavailable.');
+    return;
+  }
+
+  ambulance.distanceKm = haversineKm(
+    ambulance.lat, ambulance.lng, HOSPITAL.lat, HOSPITAL.lng
+  );
+  ambulance.assignedHospital = HOSPITAL.name;
+  ambulance.status = 'dispatched';
+
+  showToast(
+    `${ambulance.name} · ${HOSPITAL.name} · ${ambulance.distanceKm.toFixed(1)} km`
+  );
+
+  const incident = getSelected();
+  if (incident) updateStatus(incident.incident_id, 'IN PROGRESS');
+
   refreshMap();
 }
 
