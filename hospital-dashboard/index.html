@@ -654,25 +654,37 @@ function startSSE(){
     }).catch(e => console.log("SSE not available, relying on Socket.IO"));
 }
 
-function handleSSE(chunk){
+function handleSSE(chunk) {
   const lines = chunk.split('\n');
-  let event = 'message', data = '';
-  for(const l of lines){
-    if(l.startsWith('event: ')) event = l.slice(7).trim();
-    else if(l.startsWith('data: ')) data += l.slice(6);
+  let event = 'message';
+  let data = '';
+
+  for (const line of lines) {
+    if (line.startsWith('event: ')) event = line.slice(7).trim();
+    else if (line.startsWith('data: ')) data += line.slice(6);
   }
-  if(!data) return;
-  let payload; try { payload = JSON.parse(data); } catch { return; }
-  if(event==='incident'){
-    if(!firstFetchDone){ seenIds.add(payload.incident_id); persistSeen(); return; }
-    if(seenIds.has(payload.incident_id)) return;
-    seenIds.add(payload.incident_id); persistSeen();
-    incidents.unshift(payload);
-    if(!selectedId) selectedId = payload.incident_id;
-    renderAll();
-    refreshMap();
-    if (!soundEnabled) showPopup(payload); 
+
+  if (!data || event !== 'incident') return;
+
+  let incident;
+  try {
+    incident = JSON.parse(data);
+  } catch {
+    return;
   }
+
+  if (!incident.incident_id || seenIds.has(incident.incident_id)) return;
+
+  seenIds.add(incident.incident_id);
+  persistSeen();
+  incidents.unshift(incident);
+
+  if (!selectedId) selectedId = incident.incident_id;
+
+  renderAll();
+  refreshMap();
+  playSiren();
+  showPopup(incident);
 }
 
 function showPopup(inc){
