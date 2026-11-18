@@ -160,7 +160,7 @@ async function startServer() {
       name TEXT, dob TEXT, age TEXT, blood TEXT,
       allergies TEXT, conditions TEXT, medications TEXT, other_info TEXT,
       latitude REAL, longitude REAL,
-      status TEXT NOT NULL DEFAULT 'NEW',
+      status TEXT NOT NULL DEFAULT 'WAITING FOR RESPONSE',
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
       idempotency_key TEXT UNIQUE, source TEXT,
       location_source TEXT DEFAULT 'unavailable',
@@ -184,7 +184,7 @@ async function startServer() {
       incident_id TEXT PRIMARY KEY, profile_id TEXT,
       name TEXT, age TEXT, phone TEXT,
       latitude REAL, longitude REAL,
-      status TEXT NOT NULL DEFAULT 'NEW',
+      status TEXT NOT NULL DEFAULT 'WAITING FOR RESPONSE',
       contacts TEXT, -- JSON string of contacts
       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
@@ -240,7 +240,7 @@ async function startServer() {
   });
 
   // ==========================================
-  // AUTOMATIC QR SCAN ENDPOINT (Health Emergency)
+  // QR SCAN ENDPOINT (Privacy-focused)
   // ==========================================
   app.get('/api/scan/:token', (req, res) => {
     try {
@@ -256,6 +256,7 @@ async function startServer() {
       }
       const profileId = tokenRow.profile_id;
 
+      // Prevent duplicate alerts within 30 seconds
       const recent = queryOne(
         `SELECT * FROM incidents 
          WHERE profile_id = ? 
@@ -269,7 +270,6 @@ async function startServer() {
             <div style="font-family:sans-serif; text-align:center; padding:50px;">
                 <h1 style="color:#16a34a;">Emergency Alert Sent Successfully!</h1>
                 <p>The registered hospital has been notified.</p>
-                <p><strong>Incident ID:</strong> ${recent.incident_id}</p>
             </div>
         `);
       }
@@ -299,7 +299,7 @@ async function startServer() {
         conditions: latestProfile.conditions || '', medications: latestProfile.medications || '',
         other_info: latestProfile.other_info || '',
         latitude: lat, longitude: lng,
-        status: 'NEW', created_at: now, updated_at: now,
+        status: 'WAITING FOR RESPONSE', created_at: now, updated_at: now,
         source: 'qr-scan',
         location_source: 'victim_registered',
         location_owner: 'victim',
@@ -320,6 +320,7 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
+      // Send full details to Hospital Dashboard
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
@@ -341,11 +342,11 @@ async function startServer() {
 
       broadcast('incident', json);
 
+      // Bystander sees ONLY success message (No details)
       res.send(`
           <div style="font-family:sans-serif; text-align:center; padding:50px;">
               <h1 style="color:#16a34a;">Emergency Alert Sent Successfully!</h1>
               <p>The registered hospital has been notified.</p>
-              <p><strong>Incident ID:</strong> ${id}</p>
           </div>
       `);
     } catch (err) {
@@ -355,7 +356,7 @@ async function startServer() {
   });
 
   // ==========================================
-  // SECURITY SOS ENDPOINT (NEW)
+  // SECURITY SOS ENDPOINT
   // ==========================================
   app.post('/api/security-sos', (req, res) => {
     try {
@@ -379,7 +380,7 @@ async function startServer() {
         incident_id: id, profile_id: profileId,
         name: name, age: age, phone: phone,
         latitude: lat, longitude: lng,
-        status: 'NEW', contacts: contacts,
+        status: 'WAITING FOR RESPONSE', contacts: contacts,
         created_at: now, updated_at: now
       };
 
@@ -394,7 +395,6 @@ async function startServer() {
 
       const json = securityIncidentRowToJson(row);
 
-      // Notify Hospital Dashboard
       io.emit("security_emergency", json);
 
       res.json({ ok: true, incident: json });
@@ -492,13 +492,12 @@ async function startServer() {
     res.json({ ok: true, incidents: rows.map(incidentRowToJson) });
   });
 
-  // NEW ENDPOINT: Get Security Incidents
   app.get('/api/security-incidents', requireStaff, (_req, res) => {
     const rows = queryAll(`SELECT * FROM security_incidents ORDER BY created_at DESC LIMIT 500`);
     res.json({ ok: true, incidents: rows.map(securityIncidentRowToJson) });
   });
 
-  const ALLOWED = new Set(['NEW','ACKNOWLEDGED','IN PROGRESS','RESOLVED','CLOSED']);
+  const ALLOWED = new Set(['WAITING FOR RESPONSE','ACKNOWLEDGED','AMBULANCE DISPATCHED','PATIENT RECEIVED','RESOLVED','CLOSED']);
   app.patch('/api/incidents/:id', requireStaff, (req, res) => {
     const { id } = req.params;
     const status = sanitizeStr(req.body?.status, 40);
