@@ -455,11 +455,11 @@ document.getElementById('recordsPopupOverlay').addEventListener('click', e => {
 });
 
 const AMBULANCES = [
-  {id:'AMB-01',name:'Ambulance 01',status:'idle',lat:null,lng:null,hospital:'Apollo Main'},
-  {id:'AMB-02',name:'Ambulance 02',status:'idle',lat:null,lng:null,hospital:'Fortis Central'},
-  {id:'AMB-03',name:'Ambulance 03',status:'idle',lat:null,lng:null,hospital:'Global Health City'}
+  { id: 'AMB-01', name: 'Demo Ambulance 01', status: 'idle', lat: 13.0927, lng: 80.2607, hospital: 'Demo Base A' },
+  { id: 'AMB-02', name: 'Demo Ambulance 02', status: 'idle', lat: 13.0727, lng: 80.2807, hospital: 'Demo Base B' },
+  { id: 'AMB-03', name: 'Demo Ambulance 03', status: 'idle', lat: 13.1027, lng: 80.2907, hospital: 'Demo Base C' }
 ];
-const HOSPITAL = {name:'Apollo Main Hospital',lat:null,lng:null};
+const HOSPITAL = { name: 'Demo Hospital', lat: 13.0827, lng: 80.2707 };
 
 let map=null, markerLayer=null, routeLayer=null;
 
