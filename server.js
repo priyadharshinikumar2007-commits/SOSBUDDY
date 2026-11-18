@@ -164,13 +164,14 @@ async function startServer() {
   app.use(express.json({ limit: '64kb' }));
 
   // ==========================================
-  // STATIC FILE SERVING & ROUTING FIXES
+  // STATIC FILE SERVING & ROUTING
   // ==========================================
   app.use('/hospital-dashboard', express.static(path.join(__dirname, 'hospital-dashboard')));
   app.use('/sosbuddy', express.static(path.join(__dirname, 'sosbuddy')));
 
+  // Default URL goes to Hospital Dashboard
   app.get('/', (req, res) => {
-    res.redirect('/sosbuddy/index.html');
+    res.redirect('/hospital-dashboard/index.html');
   });
 
   const sseClients = new Set();
@@ -251,6 +252,7 @@ async function startServer() {
 
       const json = incidentRowToJson(row);
 
+      // Emit full patient details
       io.emit("new_emergency", {
         incidentId: id,
         patientName: row.name,
@@ -261,7 +263,13 @@ async function startServer() {
         conditions: row.conditions,
         medications: row.medications,
         scanTime: now,
-        location: { source: row.location_source, owner: row.location_owner, text: locationText, lat: lat, lng: lng }
+        location: {
+            source: row.location_source,
+            owner: row.location_owner,
+            text: locationText,
+            lat: lat,
+            lng: lng
+        }
       });
 
       broadcast('incident', json);
