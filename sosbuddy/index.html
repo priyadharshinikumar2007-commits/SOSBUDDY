@@ -618,15 +618,47 @@ function renderHomePage(){
 function renderProfilePage(){
   const profile=getHealthProfile()||{};
   const secProfile=getSecurityProfile()||{};
-  const contacts=getEmergencyContacts();
   
+  // Profile Selection Cards
+  if(activeTab==='select'){
+    return `<div class="app" style="padding-bottom:85px;">
+      <header class="profile-header">
+        <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+        <div><h1>Profile</h1><p>Select profile type</p></div>
+        <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+      </header>
+      <div style="padding:20px;">
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <button onclick="window.__app.switchTab('health')" style="background:var(--bg-card);border:2px solid var(--bg-health);border-radius:20px;padding:30px 20px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:16px;font-family:inherit;">
+            <div style="width:60px;height:60px;border-radius:16px;background:var(--bg-health);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:14px;">
+              <span class="icon" style="width:32px;height:32px;">${ICONS.heartPulse}</span>
+            </div>
+            <div>
+              <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;">Health Emergency Profile</h2>
+              <p style="font-size:12px;color:#64748b;line-height:1.5;">Medical info, blood group, allergies</p>
+            </div>
+          </button>
+
+          <button onclick="window.__app.switchTab('security')" style="background:var(--bg-card);border:2px solid var(--bg-security);border-radius:20px;padding:30px 20px;text-align:left;cursor:pointer;display:flex;align-items:center;gap:16px;font-family:inherit;">
+            <div style="width:60px;height:60px;border-radius:16px;background:var(--bg-security);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:14px;">
+              <span class="icon" style="width:32px;height:32px;">${ICONS.securityOfficer}</span>
+            </div>
+            <div>
+              <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;">Security Emergency Profile</h2>
+              <p style="font-size:12px;color:#64748b;line-height:1.5;">Personal & emergency contact details</p>
+            </div>
+          </button>
+        </div>
+      </div>
+      ${renderBottomNav()}
+    </div>`;
+  }
+
   const tabsHtml=`<div class="tabs">
     <button class="tab ${activeTab==='health'?'active':''}" onclick="window.__app.switchTab('health')">
-      <span class="icon">${ICONS.heart}</span> Health</button>
+      <span class="icon">${ICONS.heart}</span> Health Profile</button>
     <button class="tab ${activeTab==='security'?'active':''}" onclick="window.__app.switchTab('security')">
-      <span class="icon">${ICONS.shield}</span> Security</button>
-    <button class="tab ${activeTab==='contacts'?'active':''}" onclick="window.__app.switchTab('contacts')">
-      <span class="icon">${ICONS.users}</span> Contacts</button>
+      <span class="icon">${ICONS.shield}</span> Security Profile</button>
   </div>`;
   
   let formHtml='';
@@ -681,38 +713,6 @@ function renderProfilePage(){
       <p id="secProfileStatus"></p>
     </section>`;
   }
-  else {
-    let ch='';
-    if(!contacts.length){
-      ch=`<div class="empty-state" style="padding:20px 0;">
-        <div class="icon">${ICONS.users}</div><p>No emergency contacts added yet.</p></div>`;
-    } else contacts.forEach((c,i)=>{ch+=`
-      <div class="contact-form-item" style="border:1px solid var(--border-color);border-radius:16px;padding:16px;margin-bottom:14px;background:var(--bg-card-alt);position:relative;">
-        <button class="remove-contact" style="position:absolute;top:12px;right:12px;width:30px;height:30px;border:none;border-radius:8px;background:rgba(220,38,38,.1);color:var(--bg-sos);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:6px;" onclick="window.__app.removeContact(${i})">
-          <span class="icon" style="width:14px;height:14px;">${ICONS.trash}</span></button>
-        <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--nav-active);display:flex;align-items:center;gap:7px;">
-          <span class="icon" style="width:15px;height:15px;">${ICONS.user}</span> Contact ${i+1}</div>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">User ID</label>
-            <input type="text" class="contact-id" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.id||''}"></div>
-          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Full Name</label>
-            <input type="text" class="contact-name" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.name||''}"></div>
-          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Relationship</label>
-            <input type="text" class="contact-relationship" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.relationship||''}"></div>
-          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Phone</label>
-            <input type="tel" class="contact-phone" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.phone||''}"></div>
-          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Email</label>
-            <input type="email" class="contact-email" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.email||''}"></div>
-        </div>
-      </div>`});
-    formHtml=`<section class="profile-form">${ch}
-      <button class="add-contact-button" style="width:100%;height:46px;border:2px dashed var(--border-color);border-radius:14px;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;font-family:inherit;" onclick="window.__app.addContact()">
-        <span class="icon" style="width:16px;height:16px;">${ICONS.plus}</span> Add Emergency Contact</button>
-      <button class="save-profile-button" onclick="window.__app.saveContacts()">
-        <span class="icon">${ICONS.save}</span> Save Emergency Contacts</button>
-      <p id="profileStatus"></p>
-    </section>`;
-  }
   
   return `<div class="app" style="padding-bottom:85px;">
     <header class="profile-header">
@@ -729,7 +729,6 @@ function renderProfilePage(){
     ${renderBottomNav()}
   </div>`;
 }
-
 function renderAlertsPage(){
   const ai=getActiveIncident();
   const hist=getIncidentHistory();
@@ -1088,6 +1087,7 @@ const app={
     status.textContent='Saving...';status.style.color='var(--text-secondary)';
     
     const profile = {
+      profile_id: getProfileId(),
       name: document.getElementById('secName').value.trim(),
       age: document.getElementById('secAge').value.trim(),
       phone: document.getElementById('secPhone').value.trim(),
@@ -1101,30 +1101,22 @@ const app={
       status.textContent='Name and Phone are required.';status.style.color='var(--bg-sos)'; return;
     }
 
-    saveSecurityProfile(profile);
-    status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
-  },
-
-  async saveSecurityProfile(){
-    const status=document.getElementById('secProfileStatus');
-    status.textContent='Saving...';status.style.color='var(--text-secondary)';
-    
-    const profile = {
-      name: document.getElementById('secName').value.trim(),
-      age: document.getElementById('secAge').value.trim(),
-      phone: document.getElementById('secPhone').value.trim(),
-      address: document.getElementById('secAddress').value.trim(),
-      contactName: document.getElementById('secContactName').value.trim(),
-      contactPhone: document.getElementById('secContactPhone').value.trim(),
-      contactRel: document.getElementById('secContactRel').value
-    };
-
-    if(!profile.name || !profile.phone) {
-      status.textContent='Name and Phone are required.';status.style.color='var(--bg-sos)'; return;
+    try {
+      const res = await fetch(SOS_API_BASE + '/api/security-profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+      const data = await res.json();
+      if(data.ok) {
+        saveSecurityProfile(profile); // Local storage la save panna
+        status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
+      } else {
+        status.textContent='Failed: ' + (data.error || 'Unknown error');status.style.color='var(--bg-sos)';
+      }
+    } catch(err) {
+      status.textContent='Network error: ' + err.message;status.style.color='var(--bg-sos)';
     }
-
-    saveSecurityProfile(profile);
-    status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
   },
 
   downloadQR(){

@@ -185,6 +185,16 @@ async function startServer() {
     );
   `);
 
+    // NEW TABLE: Security Profiles
+  db.run(`
+    CREATE TABLE IF NOT EXISTS security_profiles (
+      profile_id TEXT PRIMARY KEY,
+      name TEXT, age TEXT, phone TEXT, address TEXT,
+      contact_name TEXT, contact_phone TEXT, contact_rel TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+  `);
+
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_incidents_profile ON incidents(profile_id);`);
   db.run(`CREATE INDEX IF NOT EXISTS idx_security_incidents_status ON security_incidents(status);`);
@@ -513,6 +523,55 @@ async function startServer() {
   app.get('/api/incidents', requireStaff, (_req, res) => {
     const rows = queryAll(`SELECT * FROM incidents ORDER BY created_at DESC LIMIT 500`);
     res.json({ ok: true, incidents: rows.map(incidentRowToJson) });
+  });
+
+    // ==========================================
+  // SECURITY PROFILE ENDPOINTS
+  // ==========================================
+  app.post('/api/security-profiles', (req, res) => {
+    try {
+      const b = req.body || {};
+      const profileId = sanitizeStr(b.profile_id, 60);
+      if (!profileId) return res.status(400).json({ ok: false, error: 'Profile ID required' });
+
+      const name = sanitizeStr(b.name, 120);
+      const age = sanitizeStr(b.age, 10);
+      const phone = sanitizeStr(b.phone, 20);
+      const address = sanitizeStr(b.address, 500);
+      const contactName = sanitizeStr(b.contactName, 120);
+      const contactPhone = sanitizeStr(b.contactPhone, 20);
+      const contactRel = sanitizeStr(b.contactRel, 40);
+      const now = nowIso();
+
+      const existing = queryOne(`SELECT profile_id FROM security_profiles WHERE profile_id = ?`, [profileId]);
+      
+      if (existing) {
+        db.prepare(`UPDATE security_profiles SET
+          name=?, age=?, phone=?, address=?, contact_name=?, contact_phone=?, contact_rel=?, updated_at=?
+          WHERE profile_id = ?`).run([
+          name, age, phone, address, contactName, contactPhone, contactRel, now, profileId
+        ]);
+      } else {
+        db.prepare(`INSERT INTO security_profiles
+          (profile_id, name, age, phone, address, contact_name, contact_phone, contact_rel, created_at, updated_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?)`).run([
+          profileId, name, age, phone, address, contactName, contactPhone, contactRel, now, now
+        ]);
+      }
+      persistDb();
+      
+      const saved = queryOne(`SELECT * FROM security_profiles WHERE profile_id = ?`, [profileId]);
+      res.json({ ok: true, profile: saved });
+    } catch (err) {
+      console.error('Security Profile Save Error:', err);
+      res.status(500).json({ ok: false, error: 'Failed to save security profile' });
+    }
+  });
+
+  app.get('/api/security-profiles/:id', (req, res) => {
+    const row = queryOne(`SELECT * FROM security_profiles WHERE profile_id = ?`, [req.params.id]);
+    if (!row) return res.status(404).json({ ok: false, error: 'Profile not found' });
+    res.json({ ok: true, profile: row });
   });
 
   app.get('/api/security-incidents', requireStaff, (_req, res) => {
