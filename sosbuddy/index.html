@@ -366,177 +366,791 @@ const SOS_API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
 const SOS_API_KEY = 'dev-local-shared-key-change-me';
 
 /* ============================================================ 
-   ICONS & STORAGE (Keep your existing icons) 
+   ICONS 
    ============================================================ */
-// ... (Keep your existing ICONS and STORAGE code here) ...
+function svg(paths, opts) {
+  const o = opts || {};
+  const fill = o.fill ? 'fill="currentColor"' : 'fill="none"';
+  const stroke = o.fill ? '' : `stroke="currentColor" stroke-width="${o.w||2}" stroke-linecap="round" stroke-linejoin="round"`;
+  return `<svg viewBox="0 0 24 24" ${fill} ${stroke}>${paths}</svg>`;
+}
+const ICONS = {
+  heart: svg('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+  user: svg('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'),
+  bell: svg('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'),
+  siren: svg('<path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/><circle cx="12" cy="12" r="4"/>'),
+  shield: svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+  home: svg('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'),
+  alert: svg('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+  mapPin: svg('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>'),
+  phone: svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+  users: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+  chevronLeft: svg('<polyline points="15 18 9 12 15 6"/>'),
+  info: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+  save: svg('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>'),
+  clipboard: svg('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/>'),
+  check: svg('<polyline points="20 6 9 17 4 12"/>', {w:2.5}),
+  checkCircle: svg('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+  droplet: svg('<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>'),
+  alertTriangle: svg('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+  hospital: svg('<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/>'),
+  id: svg('<rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M15 8h2"/><path d="M15 12h2"/><path d="M7 16h10"/>'),
+  ambulance: svg('<path d="M10 10H6"/><path d="M8 8v4"/><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M14 18v-4h-4v4"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>'),
+  sun: svg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'),
+  moon: svg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'),
+  watch: svg('<circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 13 13"/><path d="M16.13 7.66l1.79-1.79"/><path d="M6.08 16.21l-1.79 1.79"/><path d="M9 4h6"/><path d="M9 20h6"/>'),
+  mail: svg('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>'),
+  plus: svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  trash: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+  heartPulse: svg('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/><polyline points="3.5 12 7 12 9 8 12 16 15 12 20.5 12"/>'),
+  securityOfficer: svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/><path d="M12 14v4"/>'),
+  clock: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+  qrCode: svg('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="14.01"/><line x1="21" y1="14" x2="21" y2="14.01"/><line x1="14" y1="21" x2="14" y2="21.01"/><line x1="21" y1="21" x2="21" y2="21.01"/><line x1="17.5" y1="17.5" x2="17.5" y2="17.51"/>'),
+  download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  camera: svg('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>'),
+  x: svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+  share: svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>'),
+  activity: svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+  refresh: svg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'),
+  fall: svg('<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>')
+};
 
+/* ============================================================ 
+   STORAGE 
+   ============================================================ */
+const STORAGE_KEYS = {
+  HEALTH_PROFILE:'healthProfile',
+  EMERGENCY_CONTACTS:'emergencyContacts',
+  ACTIVE_INCIDENT:'activeIncident',
+  INCIDENT_HISTORY:'incidentHistory',
+  PROFILE_ID:'sosbuddy-profile-id',
+  THEME:'sosbuddy-theme'
+};
 let currentPage='home';
-let activeTab='health'; // 'health' or 'security'
+let scanSOSBusy=false;
+let activeTab='health';
+let alertsTab='active';
+let qrTab='my';
+let scannerStream=null;
+let scannedProfileId=null;
+let scannedProfileCache=null;
+
+function getStoredTheme(){return localStorage.getItem(STORAGE_KEYS.THEME)||'light'}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem(STORAGE_KEYS.THEME,t)}
+function toggleTheme(){applyTheme(getStoredTheme()==='light'?'dark':'light');renderPage()}
+function getThemeIcon(){return getStoredTheme()==='light'?ICONS.moon:ICONS.sun}
+applyTheme(getStoredTheme());
+
+function getHealthProfile(){const r=localStorage.getItem(STORAGE_KEYS.HEALTH_PROFILE);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
+function saveHealthProfile(p){localStorage.setItem(STORAGE_KEYS.HEALTH_PROFILE,JSON.stringify(p))}
+function getEmergencyContacts(){const r=localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACTS);if(!r)return[];try{return JSON.parse(r)}catch(e){return[]}}
+function saveEmergencyContacts(c){localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACTS,JSON.stringify(c))}
+function getActiveIncident(){const r=localStorage.getItem(STORAGE_KEYS.ACTIVE_INCIDENT);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
+function saveActiveIncident(i){localStorage.setItem(STORAGE_KEYS.ACTIVE_INCIDENT,JSON.stringify(i))}
+function clearActiveIncident(){localStorage.removeItem(STORAGE_KEYS.ACTIVE_INCIDENT)}
+function getIncidentHistory(){const r=localStorage.getItem(STORAGE_KEYS.INCIDENT_HISTORY);if(!r)return[];try{return JSON.parse(r)}catch(e){return[]}}
+function addToHistory(i){const h=getIncidentHistory();if(!h.find(x=>x.incidentId===i.incidentId)){h.unshift(i);if(h.length>20)h.length=20;localStorage.setItem(STORAGE_KEYS.INCIDENT_HISTORY,JSON.stringify(h))}}
+function getProfileId(){let id=localStorage.getItem(STORAGE_KEYS.PROFILE_ID);if(!id){id='P-'+Math.random().toString(36).slice(2,8).toUpperCase()+Date.now().toString(36).toUpperCase().slice(-6);localStorage.setItem(STORAGE_KEYS.PROFILE_ID,id)}return id}
+
+/* ============================================================ 
+   BACKEND 
+   ============================================================ */
+async function saveProfileToBackend(profile){
+  const body={profile_id:getProfileId(),name:profile.name||'',dob:profile.dob||'',
+    blood:profile.bloodGroup||'',allergies:profile.allergies||'',
+    conditions:profile.medicalConditions||'',medications:profile.medications||'',
+    other_info:profile.otherInfo||''};
+  const r=await fetch(SOS_API_BASE+'/api/profiles',{
+    method:'POST',headers:{'Content-Type':'application/json','x-api-key':SOS_API_KEY},
+    body:JSON.stringify(body)});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+  return data.profile;
+}
+async function fetchProfileFromBackend(profileId){
+  const r=await fetch(SOS_API_BASE+'/api/profiles/'+encodeURIComponent(profileId),{cache:'no-store'});
+  const data=await r.json().catch(()=>({}));
+  if(r.status===404)throw new Error('This profile no longer exists on the server.');
+  if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+  return data.profile;
+}
+
+/* ============================================================ 
+   QR DRAWING 
+   ============================================================ */
+function drawSOSBadge(canvasEl){
+  const ctx=canvasEl.getContext('2d');const size=canvasEl.width;const cx=size/2,cy=size/2;
+  const r=size*0.095,ring=size*0.018;
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r+ring,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#dc2626';ctx.fill();
+  ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font=`800 ${Math.round(r*0.78)}px "Segoe UI",Arial,sans-serif`;
+  ctx.fillText('SOS',cx,cy+r*0.04);
+  ctx.restore();
+}
+async function renderQRCodeToCanvas(canvasEl,text){
+  if(typeof QRCode==='undefined'){renderFallbackQR(canvasEl,text);return}
+  try{
+    await QRCode.toCanvas(canvasEl,text,{width:600,margin:2,
+      color:{dark:'#0f172a',light:'#ffffff'},errorCorrectionLevel:'H'});
+    drawSOSBadge(canvasEl);
+  }catch(err){renderFallbackQR(canvasEl,text)}
+}
+function renderFallbackQR(canvasEl,text){
+  const ctx=canvasEl.getContext('2d');const size=220,m=25,c=size/m;
+  canvasEl.width=size;canvasEl.height=size;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);
+  let h=0;for(let i=0;i<text.length;i++)h=(h*31+text.charCodeAt(i))|0;
+  ctx.fillStyle='#0f172a';
+  for(let r=0;r<m;r++)for(let k=0;k<m;k++){h=(h*9301+49297)%233280;if(h/233280>0.5)ctx.fillRect(k*c,r*c,c,c)}
+  function f(x,y){ctx.fillStyle='#0f172a';ctx.fillRect(x,y,7*c,7*c);ctx.fillStyle='#fff';ctx.fillRect(x+c,y+c,5*c,5*c);ctx.fillStyle='#0f172a';ctx.fillRect(x+2*c,y+2*c,3*c,3*c)}
+  f(0,0);f((m-7)*c,0);f(0,(m-7)*c);
+  drawSOSBadge(canvasEl);
+}
+
+/* ============================================================ 
+   SCANNER 
+   ============================================================ */
+async function startScanner(){
+  const v=document.getElementById('scannerVideo');
+  const p=document.getElementById('scannerPlaceholder');
+  const o=document.getElementById('scannerOverlay');
+  if(!v)return;
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    scannerStream=s;v.srcObject=s;v.style.display='block';v.play();
+    if(p)p.style.display='none';if(o)o.style.display='flex';
+    if('BarcodeDetector' in window){
+      window.__barcodeDetector=new BarcodeDetector({formats:['qr_code']});
+      scanLoop();
+    } else alert('QR detection is not supported in this browser.');
+  }catch(err){alert('Unable to access camera.')}
+}
+function scanLoop(){
+  const v=document.getElementById('scannerVideo');
+  if(!v||!scannerStream||!window.__barcodeDetector)return;
+  window.__barcodeDetector.detect(v).then(codes=>{
+    if(codes&&codes.length>0){const value=codes[0].rawValue;stopScanner();handleScannedQR(value)}
+    else if(scannerStream)requestAnimationFrame(scanLoop);
+  }).catch(()=>{if(scannerStream)requestAnimationFrame(scanLoop)});
+}
+function stopScanner(){if(scannerStream){scannerStream.getTracks().forEach(t=>t.stop());scannerStream=null}window.__barcodeDetector=null}
+function handleScannedQR(value){
+  if(value.includes('/api/scan/')){
+    window.location.href=value;
+    return;
+  }
+  const r=document.getElementById('scannerResult');
+  if(r){r.classList.remove('hidden');r.innerHTML=`<h4><span class="icon">${ICONS.checkCircle}</span> Invalid QR Code</h4><p>${escapeHtml(value)}</p>`}
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+/* ============================================================ 
+   NAV 
+   ============================================================ */
+function renderBottomNav(){
+  const isHome=currentPage==='home',isAlerts=currentPage==='alerts',isQR=currentPage==='qr',
+        isProfile=currentPage==='profile',isFall=currentPage==='fall';
+  const ai=getActiveIncident();
+  const cnt=ai&&ai.status==='ACTIVE'?1:0;
+  return `<nav class="bottom-nav">
+    <button class="nav-item ${isHome?'active':''}" onclick="window.__app.navigateTo('home')">
+      <span class="icon">${ICONS.home}</span><small>Home</small></button>
+    <button class="nav-item ${isAlerts?'active':''}" onclick="window.__app.navigateTo('alerts')">
+      <span class="icon">${ICONS.alert}</span><small>Alerts</small>${cnt>0?`<span class="nav-badge">${cnt}</span>`:''}</button>
+    <button class="nav-item ${isQR?'active':''}" onclick="window.__app.navigateTo('qr')">
+      <span class="icon">${ICONS.qrCode}</span><small>QR Code</small></button>
+    <button class="nav-item ${isFall?'active':''}" onclick="window.__app.navigateTo('fall')">
+      <span class="icon">${ICONS.fall}</span><small>Fall</small></button>
+    <button class="nav-item ${isProfile?'active':''}" onclick="window.__app.navigateTo('profile')">
+      <span class="icon">${ICONS.user}</span><small>Profile</small></button>
+  </nav>`;
+}
 
 /* ============================================================ 
    PAGES 
    ============================================================ */
+function renderHomePage(){
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="top-header">
+      <div><h1>SOS BUDDY</h1><p>Your security, health is our priority</p></div>
+      <div class="header-icons">
+        <button onclick="alert('No new notifications')"><span class="icon">${ICONS.bell}</span></button>
+        <button class="theme-toggle" onclick="window.__app.toggleTheme()"><span class="icon">${getThemeIcon()}</span></button>
+      </div>
+    </header>
+    <section class="sos-section">
+      <p class="emergency-title">Emergency Assistance</p>
+      <button class="sos-button" onclick="window.__app.showSOSChoiceModal()" aria-label="SOS">
+        <span class="icon">${ICONS.siren}</span>
+        <strong>SOS</strong>
+      </button>
+      <p class="sos-description">Press only during an emergency</p>
+      <p id="sosStatus"></p>
+    </section>
+    <section class="features">
+      <div class="feature-card" onclick="window.__app.navigateTo('profile')">
+        <div class="feature-icon"><span class="icon">${ICONS.users}</span></div>
+        <h3>Emergency Contact</h3><p>People to contact in emergency</p>
+      </div>
+      <div class="feature-card" onclick="window.__app.navigateTo('profile')">
+        <div class="feature-icon"><span class="icon">${ICONS.heart}</span></div>
+        <h3>Health Profile</h3><p>Personal & medical details</p>
+      </div>
+    </section>
+    <section class="monitoring-card">
+      <div class="monitoring-left">
+        <div class="monitor-icon"><span class="icon">${ICONS.shield}</span></div>
+        <div><h3>Emergency Monitoring</h3><p>System is active</p></div>
+      </div>
+      <span class="active-dot"></span>
+    </section>
+    ${renderBottomNav()}
+  </div>`;
+}
 
 function renderProfilePage(){
-  const healthProfile = getHealthProfile() || {};
-  const securityProfile = JSON.parse(localStorage.getItem('securityProfile') || '{}');
-  
-  // If no active tab selected, show the choice cards
-  if(!activeTab) {
-    return `<div class="app" style="padding-bottom:85px;">
-      <header class="profile-header">
-        <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
-        <div><h1>Profile</h1><p>Select profile type</p></div>
-      </header>
-      <div class="features" style="grid-template-columns:1fr; padding:20px;">
-        <div class="feature-card" onclick="window.__app.setProfileTab('health')" style="border-color:var(--bg-health); background:var(--bg-health-light);">
-          <div class="feature-icon" style="background:var(--bg-health); color:#fff;"><span class="icon">${ICONS.heart}</span></div>
-          <h3>Health Emergency Profile</h3><p>Medical details, allergies, blood group</p>
+  const profile=getHealthProfile()||{};
+  const contacts=getEmergencyContacts();
+  const tabsHtml=`<div class="tabs">
+    <button class="tab ${activeTab==='health'?'active':''}" onclick="window.__app.switchTab('health')">
+      <span class="icon">${ICONS.heart}</span> Health</button>
+    <button class="tab ${activeTab==='contacts'?'active':''}" onclick="window.__app.switchTab('contacts')">
+      <span class="icon">${ICONS.users}</span> Contacts</button>
+  </div>`;
+  let formHtml='';
+  if(activeTab==='health'){
+    formHtml=`<section class="profile-form">
+      <div class="form-group"><label><span class="icon">${ICONS.user}</span> Full Name</label>
+        <input type="text" id="name" placeholder="Enter your full name" value="${profile.name||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.droplet}</span> Blood Group</label>
+        <select id="bloodGroup"><option value="">Select blood group</option>
+          ${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg=>`<option value="${bg}" ${profile.bloodGroup===bg?'selected':''}>${bg}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><label><span class="icon">${ICONS.alertTriangle}</span> Allergies</label>
+        <textarea id="allergies" placeholder="Enter any known allergies" rows="3">${profile.allergies||''}</textarea></div>
+      <div class="form-group"><label><span class="icon">${ICONS.hospital}</span> Medical Conditions</label>
+        <textarea id="conditions" placeholder="Enter medical conditions" rows="3">${profile.medicalConditions||''}</textarea></div>
+      <div class="form-group"><label><span class="icon">${ICONS.clock}</span> Date of Birth (optional)</label>
+        <input type="date" id="dob" max="${new Date().toISOString().slice(0,10)}" value="${profile.dob||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.clipboard}</span> Current Medications (optional)</label>
+        <textarea id="medications" placeholder="e.g. Metformin 500 mg twice daily" rows="3">${profile.medications||''}</textarea></div>
+      <div class="form-group"><label><span class="icon">${ICONS.info}</span> Other Info (optional)</label>
+        <textarea id="otherInfo" placeholder="e.g. Pacemaker" rows="3">${profile.otherInfo||''}</textarea></div>
+      <button class="save-profile-button" onclick="window.__app.saveProfile()">
+        <span class="icon">${ICONS.save}</span> Save Health Profile</button>
+      <p id="profileStatus"></p>
+    </section>`;
+  } else {
+    let ch='';
+    if(!contacts.length){
+      ch=`<div class="empty-state" style="padding:20px 0;">
+        <div class="icon">${ICONS.users}</div><p>No emergency contacts added yet.</p></div>`;
+    } else contacts.forEach((c,i)=>{ch+=`
+      <div class="contact-form-item" style="border:1px solid var(--border-color);border-radius:16px;padding:16px;margin-bottom:14px;background:var(--bg-card-alt);position:relative;">
+        <button class="remove-contact" style="position:absolute;top:12px;right:12px;width:30px;height:30px;border:none;border-radius:8px;background:rgba(220,38,38,.1);color:var(--bg-sos);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:6px;" onclick="window.__app.removeContact(${i})">
+          <span class="icon" style="width:14px;height:14px;">${ICONS.trash}</span></button>
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--nav-active);display:flex;align-items:center;gap:7px;">
+          <span class="icon" style="width:15px;height:15px;">${ICONS.user}</span> Contact ${i+1}</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">User ID</label>
+            <input type="text" class="contact-id" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.id||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Full Name</label>
+            <input type="text" class="contact-name" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.name||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Relationship</label>
+            <input type="text" class="contact-relationship" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.relationship||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Phone</label>
+            <input type="tel" class="contact-phone" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.phone||''}"></div>
+          <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;margin-bottom:5px;">Email</label>
+            <input type="email" class="contact-email" style="height:42px;font-size:12px;padding:10px 12px;border-radius:10px;" value="${c.email||''}"></div>
         </div>
-        <div class="feature-card" onclick="window.__app.setProfileTab('security')" style="border-color:var(--bg-security); background:var(--bg-security-light);">
-          <div class="feature-icon" style="background:var(--bg-security); color:#fff;"><span class="icon">${ICONS.securityOfficer}</span></div>
-          <h3>Security Emergency Profile</h3><p>Personal info, emergency contacts</p>
+      </div>`});
+    formHtml=`<section class="profile-form">${ch}
+      <button class="add-contact-button" style="width:100%;height:46px;border:2px dashed var(--border-color);border-radius:14px;background:transparent;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;font-family:inherit;" onclick="window.__app.addContact()">
+        <span class="icon" style="width:16px;height:16px;">${ICONS.plus}</span> Add Emergency Contact</button>
+      <button class="save-profile-button" onclick="window.__app.saveContacts()">
+        <span class="icon">${ICONS.save}</span> Save Emergency Contacts</button>
+      <p id="profileStatus"></p>
+    </section>`;
+  }
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="profile-header">
+      <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+      <div><h1>Profile</h1><p>Manage your health & contacts</p></div>
+      <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+    </header>
+    ${tabsHtml}${formHtml}
+    <section class="info-box">
+      <div class="info-icon"><span class="icon">${ICONS.info}</span></div>
+      <div><h3>Why is this important?</h3>
+        <p>Your profile is saved to the backend. The QR code always fetches the latest data when scanned.</p></div>
+    </section>
+    ${renderBottomNav()}
+  </div>`;
+}
+
+function renderAlertsPage(){
+  const ai=getActiveIncident();
+  const hist=getIncidentHistory();
+  const active=(ai&&ai.status==='ACTIVE')?[ai]:[];
+  const closed=hist;
+  const tabsHtml=`<div class="alerts-tabs">
+    <button class="alerts-tab ${alertsTab==='active'?'active':''}" onclick="window.__app.switchAlertsTab('active')">
+      <span class="icon">${ICONS.siren}</span> Active ${active.length>0?`<span class="tab-count">${active.length}</span>`:''}</button>
+    <button class="alerts-tab ${alertsTab==='closed'?'active':''}" onclick="window.__app.switchAlertsTab('closed')">
+      <span class="icon">${ICONS.checkCircle}</span> Closed ${closed.length>0?`<span class="tab-count">${closed.length}</span>`:''}</button>
+  </div>`;
+  const list=alertsTab==='active'?active:closed;
+  let listHtml='';
+  if(!list.length){
+    listHtml=`<div class="alerts-list"><div class="empty-state" style="padding:40px 20px;">
+      <div class="icon">${alertsTab==='active'?ICONS.siren:ICONS.checkCircle}</div>
+      <p>${alertsTab==='active'?'No active emergency requests.':'No closed requests yet.'}</p></div></div>`;
+  } else {
+    listHtml='<div class="alerts-list">';
+    list.forEach(i=>{
+      const act=i.status==='ACTIVE';
+      const type=i.sosType||'health';
+      const icon=type==='security'?ICONS.securityOfficer:ICONS.heartPulse;
+      const label=i.typeLabel||(type==='security'?'Security Emergency':'Health Emergency');
+      const dt=i.createdAtFull?new Date(i.createdAtFull).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):(i.createdAt||'--');
+      listHtml+=`<div class="alert-item" onclick="window.__app.viewIncident('${i.incidentId}')">
+        <div class="alert-item-top">
+          <div class="alert-item-icon ${type}"><span class="icon">${icon}</span></div>
+          <div class="alert-item-info"><h4>${label}</h4><div class="alert-id">${i.incidentId}</div></div>
+          <div class="alert-item-status ${act?'active':'closed'}"><span class="dot"></span>${act?'Active':'Closed'}</div>
+        </div>
+        <div class="alert-item-details">
+          <div class="alert-item-detail"><span class="icon">${ICONS.clock}</span>${dt}</div>
+          <div class="alert-item-detail"><span class="icon">${ICONS.mapPin}</span>
+            ${i.latitude!=null?Number(i.latitude).toFixed(4):'--'}, ${i.longitude!=null?Number(i.longitude).toFixed(4):'--'}
+          </div>
+        </div>
+      </div>`;
+    });
+    listHtml+='</div>';
+  }
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="alerts-header">
+      <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+      <div><h1>Alerts</h1><p>Active & closed emergency requests</p></div>
+      <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+    </header>
+    ${tabsHtml}${listHtml}${renderBottomNav()}
+  </div>`;
+}
+
+function renderQRPage(){
+  const tabsHtml=`<div class="qr-tabs">
+    <button class="qr-tab ${qrTab==='my'?'active':''}" onclick="window.__app.switchQRTab('my')">
+      <span class="icon">${ICONS.qrCode}</span> My QR Code</button>
+    <button class="qr-tab ${qrTab==='scan'?'active':''}" onclick="window.__app.switchQRTab('scan')">
+      <span class="icon">${ICONS.camera}</span> Scan QR Code</button>
+  </div>`;
+  let contentHtml='';
+  if(qrTab==='my'){
+    const p=getHealthProfile()||{};
+    const has=p.name&&p.bloodGroup;
+    contentHtml=`<div class="qr-content"><div class="qr-card">
+      <div class="qr-image-wrapper"><canvas id="myQRCanvas" width="220" height="220"></canvas></div>
+      <h3>My Emergency QR</h3>
+      <p class="qr-subtitle">${has?'Scan this QR to see my <strong>latest</strong> saved health profile and trigger SOS.':'Complete your health profile so this QR carries your emergency data.'}</p>
+      <div class="qr-actions">
+        <button class="qr-action-btn primary" onclick="window.__app.downloadQR()"><span class="icon">${ICONS.download}</span> Download</button>
+        <button class="qr-action-btn secondary" onclick="window.__app.shareQR()"><span class="icon">${ICONS.share}</span> Share</button>
+      </div>
+      <div class="qr-info-list">
+        <div class="qr-info-item"><span class="icon">${ICONS.shield}</span>QR holds only a stable profile ID</div>
+        <div class="qr-info-item"><span class="icon">${ICONS.refresh}</span>Always fetches the latest saved profile</div>
+        <div class="qr-info-item"><span class="icon">${ICONS.heart}</span>Emergency contact shown on scan</div>
+      </div>
+    </div></div>`;
+  } else {
+    contentHtml=`<div class="qr-content">
+      <div class="scanner-wrapper">
+        <video id="scannerVideo" class="scanner-video" playsinline muted style="display:none;"></video>
+        <div id="scannerPlaceholder" class="scanner-placeholder">
+          <span class="icon">${ICONS.camera}</span>
+          <p>Tap "Start Camera" below to scan a QR code.</p>
+        </div>
+        <div id="scannerOverlay" class="scanner-overlay" style="display:none;">
+          <div class="scanner-frame">
+            <div class="scanner-corner tl"></div><div class="scanner-corner tr"></div>
+            <div class="scanner-corner bl"></div><div class="scanner-corner br"></div>
+            <div class="scanner-laser"></div>
+          </div>
         </div>
       </div>
-      ${renderBottomNav()}
+      <div class="scanner-controls">
+        <button class="qr-action-btn primary" onclick="window.__app.startScanner()">
+          <span class="icon">${ICONS.camera}</span> Start Camera</button>
+        <button class="qr-action-btn secondary" onclick="window.__app.stopScanner()">
+          <span class="icon">${ICONS.x}</span> Stop</button>
+      </div>
+      <div id="scannerResult" class="scanner-result hidden"></div>
     </div>`;
   }
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="qr-header">
+      <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+      <div><h1>QR Code</h1><p>Share & scan emergency info</p></div>
+      <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+    </header>
+    ${tabsHtml}${contentHtml}${renderBottomNav()}
+  </div>`;
+}
 
-  // HEALTH PROFILE FORM (Existing)
-  if(activeTab === 'health') {
-    return `<div class="app" style="padding-bottom:85px;">
-      <header class="profile-header">
-        <button class="back-button" onclick="window.__app.setProfileTab(null)"><span class="icon">${ICONS.chevronLeft}</span></button>
-        <div><h1>Health Profile</h1><p>Medical details</p></div>
-      </header>
-      <section class="profile-form">
-        <!-- Existing health form fields -->
-        <div class="form-group"><label>Full Name</label><input type="text" id="name" value="${healthProfile.name||''}"></div>
-        <div class="form-group"><label>Blood Group</label>
-          <select id="bloodGroup"><option value="">Select</option>${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(bg=>`<option value="${bg}" ${healthProfile.bloodGroup===bg?'selected':''}>${bg}</option>`).join('')}</select>
+function renderEmergencyPage(){
+  const inc=getActiveIncident();
+  const profile=getHealthProfile()||{};
+  const incidentId=inc?inc.incidentId:'No active incident';
+  const emergencyContact=inc?.emergencyContact||profile.emergencyContact||'--';
+  const sosType=inc?.sosType||'health';
+  const typeLabel=inc?.typeLabel||'Health Emergency';
+  const typeIcon=sosType==='security'?ICONS.securityOfficer:ICONS.heartPulse;
+  const typeColor=sosType==='security'?'#2563eb':'#059669';
+  const typeBg=sosType==='security'?'#dbeafe':'#d1fae5';
+  const isResolved=inc&&inc.status==='RESOLVED';
+  let timelineHtml='';
+  if(inc&&inc.timeline){
+    const iconMap={'SOS Activated':ICONS.siren,'Health Emergency Triggered':ICONS.heartPulse,
+      'Security Emergency Triggered':ICONS.securityOfficer,'Person Identified':ICONS.user,
+      'Location Confirmed':ICONS.mapPin,'Emergency Contact Notified':ICONS.phone,
+      'Response Requested':ICONS.ambulance,'Emergency Resolved':ICONS.checkCircle};
+    inc.timeline.forEach(item=>{
+      const icon=iconMap[item.status]||ICONS.clipboard;
+      timelineHtml+=`<div class="timeline-item ${item.completed?'completed':''}">
+        <div class="timeline-icon"><span class="icon">${icon}</span></div>
+        <div class="timeline-content">
+          <h3>${item.status}</h3><p>${item.completed?'Completed':'Waiting'}</p>
+          <span>${item.time||'--:--:--'}</span>
         </div>
-        <div class="form-group"><label>Allergies</label><textarea id="allergies">${healthProfile.allergies||''}</textarea></div>
-        <div class="form-group"><label>Medical Conditions</label><textarea id="conditions">${healthProfile.medicalConditions||''}</textarea></div>
-        <button class="save-profile-button" onclick="window.__app.saveProfile('health')">Save Health Profile</button>
-      </section>
-      ${renderBottomNav()}
-    </div>`;
+      </div>`;
+    });
   }
+  const statusText=sosType==='security'?'A security officer has been requested to your location.':'Medical assistance has been requested.';
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="alert-header">
+      <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+      <div><h1>Emergency Alert</h1><p>${isResolved?'Resolved incident':'Emergency assistance'}</p></div>
+      <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+    </header>
+    <section class="emergency-status">
+      <div class="emergency-icon" style="background:${isResolved?'var(--bg-alert-status-done)':typeBg};color:${isResolved?'var(--success-text)':typeColor};">
+        <span class="icon">${isResolved?ICONS.checkCircle:typeIcon}</span>
+      </div>
+      <h2>${isResolved?'Emergency Resolved':typeLabel+' Activated'}</h2>
+      <p>${isResolved?'This incident has been marked as resolved.':statusText}</p>
+    </section>
+    <section class="alert-card">
+      <div class="alert-card-icon"><span class="icon">${ICONS.id}</span></div>
+      <div class="alert-card-content"><h3>Incident ID</h3><p>${incidentId}</p></div>
+    </section>
+    <section class="alert-card">
+      <div class="alert-card-icon" style="background:${typeBg};color:${typeColor};"><span class="icon">${typeIcon}</span></div>
+      <div class="alert-card-content"><h3>${typeLabel}</h3><p>${statusText}</p></div>
+    </section>
+    <section class="alert-card">
+      <div class="alert-card-icon"><span class="icon">${ICONS.phone}</span></div>
+      <div class="alert-card-content"><h3>Emergency Contact</h3><p>${emergencyContact}</p></div>
+    </section>
+    <section class="alert-status-card ${isResolved?'acknowledged':''}" id="alertStatusCard">
+      <div><h3>Alert Status</h3><p id="alertStatus">${isResolved?'RESOLVED':'ACTIVE'}</p></div>
+      <span class="status-indicator"></span>
+    </section>
+    ${!isResolved?`<button class="resolve-button" onclick="window.__app.resolveIncident()">
+      <span class="icon">${ICONS.checkCircle}</span> Mark as Resolved</button>`:''}
+    <section class="timeline-section">
+      <h2><span class="icon">${ICONS.siren}</span> Emergency Response Timeline</h2>
+      <div>${timelineHtml}</div>
+    </section>
+    ${renderBottomNav()}
+  </div>`;
+}
 
-  // SECURITY PROFILE FORM (New)
-  if(activeTab === 'security') {
-    return `<div class="app" style="padding-bottom:85px;">
-      <header class="profile-header">
-        <button class="back-button" onclick="window.__app.setProfileTab(null)"><span class="icon">${ICONS.chevronLeft}</span></button>
-        <div><h1>Security Profile</h1><p>Personal & emergency contacts</p></div>
-      </header>
-      <section class="profile-form">
-        <div class="form-group"><label>Full Name</label><input type="text" id="secName" value="${securityProfile.name||''}"></div>
-        <div class="form-group"><label>Age</label><input type="number" id="secAge" value="${securityProfile.age||''}"></div>
-        <div class="form-group"><label>Phone</label><input type="tel" id="secPhone" value="${securityProfile.phone||''}"></div>
-        <div class="form-group"><label>Address</label><textarea id="secAddress">${securityProfile.address||''}</textarea></div>
-        <div class="form-group"><label>Emergency Contact Name</label><input type="text" id="secContactName" value="${securityProfile.contactName||''}"></div>
-        <div class="form-group"><label>Emergency Contact Phone</label><input type="tel" id="secContactPhone" value="${securityProfile.contactPhone||''}"></div>
-        <div class="form-group"><label>Relationship</label>
-          <select id="secRelationship">
-            <option value="">Select</option>
-            ${['Father','Mother','Brother','Sister','Friend','Guardian','Other'].map(r=>`<option value="${r}" ${securityProfile.relationship===r?'selected':''}>${r}</option>`).join('')}
-          </select>
+function renderFallPage(){
+  const flow=[
+    {icon:ICONS.alert,title:'Fall or faint detection',desc:'A wearable sensor (planned) notices a sudden fall.'},
+    {icon:ICONS.activity,title:'Fall classification',desc:'A model (planned) separates real falls from normal activity.'},
+    {icon:ICONS.bell,title:'Check-in countdown',desc:'The wearable asks "Are you OK?".'},
+    {icon:ICONS.mapPin,title:'Location identification',desc:"The person's position is captured."},
+    {icon:ICONS.users,title:'Neighbour, family & contact alerts',desc:'Nearby neighbours are alerted first, then family.'}
+  ].map(s=>`<li>
+    <div class="fall-flow-icon"><span class="icon">${s.icon}</span></div>
+    <div><h4>${s.title}</h4><p>${s.desc}</p></div>
+  </li>`).join('');
+  return `<div class="app" style="padding-bottom:85px;">
+    <header class="qr-header">
+      <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
+      <div><h1>Fall Alert</h1><p>Planned fall & faint detection</p></div>
+      <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
+    </header>
+    <div class="fall-content">
+      <section class="fall-card">
+        <div class="fall-hero-top">
+          <div class="fall-hero-icon"><span class="icon">${ICONS.fall}</span></div>
+          <div><span class="fall-badge">Future Feature</span><h2>Help reaches them even if they can't call</h2></div>
         </div>
-        <button class="save-profile-button" onclick="window.__app.saveProfile('security')">Save Security Profile</button>
+        <p class="fall-text">Fall Alert is a planned extension of SOS BUDDY for senior citizens.</p>
+        <div class="fall-chips">
+          <span class="fall-chip">Fall detection</span>
+          <span class="fall-chip">Faint detection</span>
+          <span class="fall-chip">Neighbour alert</span>
+          <span class="fall-chip">Family & contacts</span>
+        </div>
       </section>
-      ${renderBottomNav()}
-    </div>`;
-  }
+      <section class="fall-card">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">Proposed workflow</div>
+        <ol class="fall-flow">${flow}</ol>
+      </section>
+      <p class="fall-disclaimer">Prototype Preview: all readings shown are simulated demo data.</p>
+    </div>
+    ${renderBottomNav()}
+  </div>`;
+}
+
+/* ============================================================ 
+   ROUTER 
+   ============================================================ */
+function renderPage(){
+  const root=document.getElementById('appRoot');if(!root)return;
+  let html='';
+  if(currentPage==='home')html=renderHomePage();
+  else if(currentPage==='profile')html=renderProfilePage();
+  else if(currentPage==='alerts')html=renderAlertsPage();
+  else if(currentPage==='qr')html=renderQRPage();
+  else if(currentPage==='fall')html=renderFallPage();
+  else if(currentPage==='emergency')html=renderEmergencyPage();
+  root.innerHTML=html;
+  if(currentPage==='emergency'){const i=getActiveIncident();if(i&&i.status==='ACTIVE')startAlertTracking()}
+  if(currentPage==='qr'&&qrTab==='my'){const c=document.getElementById('myQRCanvas');if(c)renderQRCodeToCanvas(c,buildQRPayload())}
+  if(currentPage==='qr'&&qrTab==='scan'&&scannerStream)setTimeout(()=>startScanner(),100);
+}
+function startAlertTracking(){
+  const el=document.getElementById('alertStatus');if(!el)return;
+  if(el.innerText!=='ACTIVE')return;
+  el.innerText='WAITING FOR RESPONSE';
+  if(window.__alertTimer)clearTimeout(window.__alertTimer);
+  window.__alertTimer=setTimeout(()=>{
+    if(el)el.innerText='NO RESPONSE — ALERT ESCALATED';
+    const c=document.getElementById('alertStatusCard');if(c)c.classList.add('acknowledged');
+  },5000);
 }
 
 /* ============================================================ 
    PUBLIC API 
    ============================================================ */
-const app = {
+function showSOSChoiceModal(){
+  const modal=document.createElement('div');
+  modal.className='modal-overlay';
+  modal.innerHTML=`
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon"><span class="icon">${ICONS.siren}</span></div>
+        <h3>Select Emergency Type</h3>
+        <p class="modal-subtitle">Choose the type of emergency you are experiencing.</p>
+      </div>
+      <div class="sos-choice-grid">
+        <button class="sos-choice-btn health" onclick="window.__app.triggerSOS('health')">
+          <div class="choice-icon"><span class="icon">${ICONS.heartPulse}</span></div>
+          <div class="choice-info">
+            <div class="choice-title">Health Emergency</div>
+            <div class="choice-desc">Medical help, ambulance, hospital alert</div>
+          </div>
+        </button>
+        <button class="sos-choice-btn security" onclick="window.__app.triggerSOS('security')">
+          <div class="choice-icon"><span class="icon">${ICONS.securityOfficer}</span></div>
+          <div class="choice-info">
+            <div class="choice-title">Security Emergency</div>
+            <div class="choice-desc">Police, security officer, women's safety</div>
+          </div>
+        </button>
+      </div>
+      <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+        <span class="icon">${ICONS.x}</span> Cancel
+      </button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+const app={
   navigateTo(page){
-    currentPage=page;
-    if(page !== 'profile') activeTab = null; 
-    renderPage();
+    if(currentPage==='qr'&&page!=='qr')stopScanner();
+    currentPage=page;activeTab='health';
+    renderPage();window.scrollTo({top:0,behavior:'smooth'});
   },
-  setProfileTab(tab){
-    activeTab=tab;
-    renderPage();
+  switchTab(t){activeTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
+  switchAlertsTab(t){alertsTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
+  switchQRTab(t){if(qrTab==='scan'&&t!=='scan')stopScanner();qrTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
+  startScanner(){startScanner()},
+  stopScanner(){
+    stopScanner();
+    const p=document.getElementById('scannerPlaceholder'),v=document.getElementById('scannerVideo'),o=document.getElementById('scannerOverlay');
+    if(p)p.style.display='flex';if(v)v.style.display='none';if(o)o.style.display='none';
   },
-  async saveProfile(type){
-    if(type === 'health') {
-      const profile = {
-        name:document.getElementById('name').value.trim(),
-        bloodGroup:document.getElementById('bloodGroup').value,
-        allergies:document.getElementById('allergies').value.trim(),
-        medicalConditions:document.getElementById('conditions').value.trim()
-      };
+  showSOSChoiceModal(){showSOSChoiceModal()},
+  toggleTheme(){toggleTheme()},
+  
+  async saveProfile(){
+    const profile={
+      name:document.getElementById('name').value.trim(),
+      bloodGroup:document.getElementById('bloodGroup').value,
+      allergies:document.getElementById('allergies').value.trim(),
+      medicalConditions:document.getElementById('conditions').value.trim(),
+      dob:document.getElementById('dob').value,
+      medications:document.getElementById('medications').value.trim(),
+      otherInfo:document.getElementById('otherInfo').value.trim()
+    };
+    const status=document.getElementById('profileStatus');
+    status.textContent='Saving...';status.style.color='var(--text-secondary)';
+    try{
+      await saveProfileToBackend(profile);
       saveHealthProfile(profile);
-      try {
-        await saveProfileToBackend(profile);
-        alert('Health profile saved!');
-      } catch(e) { alert('Saved locally, backend failed'); }
-    } else if(type === 'security') {
-      const secProfile = {
-        name:document.getElementById('secName').value.trim(),
-        age:document.getElementById('secAge').value.trim(),
-        phone:document.getElementById('secPhone').value.trim(),
-        address:document.getElementById('secAddress').value.trim(),
-        contactName:document.getElementById('secContactName').value.trim(),
-        contactPhone:document.getElementById('secContactPhone').value.trim(),
-        relationship:document.getElementById('secRelationship').value
-      };
-      localStorage.setItem('securityProfile', JSON.stringify(secProfile));
-      alert('Security profile saved!');
+      status.textContent='Profile saved successfully!';status.style.color='var(--success-text)';
+    }catch(err){
+      status.textContent='Failed to save: '+err.message;status.style.color='var(--bg-sos)';
     }
   },
+
+  addContact(){
+    const contacts=getEmergencyContacts();
+    contacts.push({id:'',name:'',relationship:'',phone:'',email:''});
+    saveEmergencyContacts(contacts);
+    renderPage();
+  },
+
+  removeContact(index){
+    const contacts=getEmergencyContacts();
+    contacts.splice(index,1);
+    saveEmergencyContacts(contacts);
+    renderPage();
+  },
+
+  saveContacts(){
+    const contacts=[];
+    document.querySelectorAll('.contact-form-item').forEach(el=>{
+      contacts.push({
+        id: el.querySelector('.contact-id').value.trim(),
+        name: el.querySelector('.contact-name').value.trim(),
+        relationship: el.querySelector('.contact-relationship').value.trim(),
+        phone: el.querySelector('.contact-phone').value.trim(),
+        email: el.querySelector('.contact-email').value.trim()
+      });
+    });
+    saveEmergencyContacts(contacts);
+    const status=document.getElementById('profileStatus');
+    if(status){status.textContent='Emergency contacts saved!';status.style.color='var(--success-text)';}
+  },
+
+  downloadQR(){
+    const canvas=document.getElementById('myQRCanvas');
+    if(!canvas)return;
+    const link=document.createElement('a');
+    link.download='sos-buddy-qr.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  },
   
-  async triggerSOS(type){
-    document.querySelectorAll('.modal-overlay').forEach(m=>m.remove());
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        
-        if(type === 'health') {
-          try {
-            const profile = getHealthProfile() || {};
-            await fetch(SOS_API_BASE + '/api/incidents', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': SOS_API_KEY },
-              body: JSON.stringify({ profile_id: getProfileId(), name: profile.name, latitude: lat, longitude: lng, source: 'health' })
-            });
-          } catch(e) {}
-        } else {
-          try {
-            const secProfile = JSON.parse(localStorage.getItem('securityProfile') || '{}');
-            await fetch(SOS_API_BASE + '/api/security-sos', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                profile_id: getProfileId(),
-                name: secProfile.name || 'Unknown',
-                age: secProfile.age,
-                phone: secProfile.phone,
-                latitude: lat, longitude: lng,
-                contacts: [{ name: secProfile.contactName, phone: secProfile.contactPhone, relationship: secProfile.relationship }]
-              })
-            });
-          } catch(e) {}
-        }
-        
-        alert('Emergency Alert Sent!');
-      },
-      (error) => {
-        alert('Location required for SOS.');
-      },
-      { enableHighAccuracy: true }
-    );
+  shareQR(){
+    const canvas=document.getElementById('myQRCanvas');
+    if(!canvas)return;
+    canvas.toBlob(blob=>{
+      if(navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],'qr.png',{type:'image/png'})]})){
+        navigator.share({files:[new File([blob],'sos-buddy-qr.png',{type:'image/png'})],title:'SOS Buddy QR'}).catch(()=>{});
+      }else{
+        alert('Sharing is not supported on this device. Please download the QR code instead.');
+      }
+    });
+  },
+
+  async triggerSOS(sosType){
+    const status=document.getElementById('sosStatus');
+    if(status){ status.textContent = 'Sending SOS...'; status.style.color = 'var(--text-secondary)'; }
+    
+    try {
+      const position = await new Promise((resolve, reject) => {
+        if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:10000 });
+      });
+
+      const profile = getHealthProfile() || {};
+      const incidentId = 'INC-' + Date.now().toString(36).toUpperCase();
+      
+      const payload = {
+        incident_id: incidentId,
+        profile_id: getProfileId(),
+        sos_type: sosType,
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        name: profile.name || 'Unknown',
+        blood: profile.bloodGroup || '',
+        allergies: profile.allergies || '',
+        conditions: profile.medicalConditions || '',
+        medications: profile.medications || ''
+      };
+
+      const res = await fetch(SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId()), {
+        method:'GET'
+      });
+      
+      const incident = {
+        incidentId,
+        sosType,
+        typeLabel: sosType === 'security' ? 'Security Emergency' : 'Health Emergency',
+        status:'ACTIVE',
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        createdAtFull: new Date().toISOString(),
+        emergencyContact: (getEmergencyContacts()[0] || {}).phone || '--',
+        timeline: [
+          { status: sosType === 'security' ? 'Security Emergency Triggered' : 'Health Emergency Triggered', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Person Identified', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Location Confirmed', completed:true, time:new Date().toLocaleTimeString() },
+          { status:'Emergency Contact Notified', completed:false, time:'' },
+          { status:'Response Requested', completed:false, time:'' }
+        ]
+      };
+      saveActiveIncident(incident);
+      addToHistory(incident);
+      
+      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
+      currentPage = 'emergency';
+      renderPage();
+
+    } catch(err) {
+      if(status){ status.textContent = 'SOS failed: ' + err.message; status.style.color = 'var(--bg-sos)'; }
+      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
+      alert('Could not send SOS: ' + err.message);
+    }
+  },
+
+  resolveIncident(){
+    const inc = getActiveIncident();
+    if(!inc) return;
+    inc.status = 'RESOLVED';
+    inc.timeline = inc.timeline.map(t => ({...t, completed:true, time: t.time || new Date().toLocaleTimeString()}));
+    inc.timeline.push({ status:'Emergency Resolved', completed:true, time:new Date().toLocaleTimeString() });
+    saveActiveIncident(inc);
+    addToHistory(inc);
+    renderPage();
+  },
+
+  viewIncident(incidentId){
+    const inc = getActiveIncident();
+    if(inc && inc.incidentId === incidentId){ currentPage = 'emergency'; renderPage(); return; }
+    const found = getIncidentHistory().find(i => i.incidentId === incidentId);
+    if(found){ saveActiveIncident(found); currentPage = 'emergency'; renderPage(); }
   }
 };
 
-window.__app = app;
+function buildQRPayload(){
+  return SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId());
+}
+
 renderPage();
+
+window.__app = app;
 </script>
 </body>
 </html>
