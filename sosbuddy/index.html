@@ -420,6 +420,7 @@ const ICONS = {
    ============================================================ */
 const STORAGE_KEYS = {
   HEALTH_PROFILE:'healthProfile',
+  SECURITY_PROFILE:'securityProfile', // <--- Ithu add pannunga
   EMERGENCY_CONTACTS:'emergencyContacts',
   ACTIVE_INCIDENT:'activeIncident',
   INCIDENT_HISTORY:'incidentHistory',
@@ -443,6 +444,10 @@ applyTheme(getStoredTheme());
 
 function getHealthProfile(){const r=localStorage.getItem(STORAGE_KEYS.HEALTH_PROFILE);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
 function saveHealthProfile(p){localStorage.setItem(STORAGE_KEYS.HEALTH_PROFILE,JSON.stringify(p))}
+function getSecurityProfile(){const r=localStorage.getItem(STORAGE_KEYS.SECURITY_PROFILE);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
+function saveSecurityProfile(p){localStorage.setItem(STORAGE_KEYS.SECURITY_PROFILE,JSON.stringify(p))}
+function getSecurityProfile(){const r=localStorage.getItem(STORAGE_KEYS.SECURITY_PROFILE);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
+function saveSecurityProfile(p){localStorage.setItem(STORAGE_KEYS.SECURITY_PROFILE,JSON.stringify(p))}
 function getEmergencyContacts(){const r=localStorage.getItem(STORAGE_KEYS.EMERGENCY_CONTACTS);if(!r)return[];try{return JSON.parse(r)}catch(e){return[]}}
 function saveEmergencyContacts(c){localStorage.setItem(STORAGE_KEYS.EMERGENCY_CONTACTS,JSON.stringify(c))}
 function getActiveIncident(){const r=localStorage.getItem(STORAGE_KEYS.ACTIVE_INCIDENT);if(!r)return null;try{return JSON.parse(r)}catch(e){return null}}
@@ -612,14 +617,20 @@ function renderHomePage(){
 
 function renderProfilePage(){
   const profile=getHealthProfile()||{};
+  const secProfile=getSecurityProfile()||{};
   const contacts=getEmergencyContacts();
+  
   const tabsHtml=`<div class="tabs">
     <button class="tab ${activeTab==='health'?'active':''}" onclick="window.__app.switchTab('health')">
       <span class="icon">${ICONS.heart}</span> Health</button>
+    <button class="tab ${activeTab==='security'?'active':''}" onclick="window.__app.switchTab('security')">
+      <span class="icon">${ICONS.shield}</span> Security</button>
     <button class="tab ${activeTab==='contacts'?'active':''}" onclick="window.__app.switchTab('contacts')">
       <span class="icon">${ICONS.users}</span> Contacts</button>
   </div>`;
+  
   let formHtml='';
+  
   if(activeTab==='health'){
     formHtml=`<section class="profile-form">
       <div class="form-group"><label><span class="icon">${ICONS.user}</span> Full Name</label>
@@ -642,7 +653,35 @@ function renderProfilePage(){
         <span class="icon">${ICONS.save}</span> Save Health Profile</button>
       <p id="profileStatus"></p>
     </section>`;
-  } else {
+  } 
+  else if(activeTab==='security'){
+    formHtml=`<section class="profile-form">
+      <div class="form-group"><label><span class="icon">${ICONS.user}</span> Full Name</label>
+        <input type="text" id="secName" placeholder="Enter your full name" value="${secProfile.name||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.clock}</span> Age</label>
+        <input type="number" id="secAge" placeholder="Enter your age" value="${secProfile.age||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.phone}</span> Phone Number</label>
+        <input type="tel" id="secPhone" placeholder="Enter your phone number" value="${secProfile.phone||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.mapPin}</span> Address</label>
+        <textarea id="secAddress" placeholder="Enter your address" rows="3">${secProfile.address||''}</textarea></div>
+      
+      <h3 style="font-size:14px;margin:20px 0 10px;color:var(--text-primary);">Emergency Contact</h3>
+      <div class="form-group"><label><span class="icon">${ICONS.users}</span> Contact Name</label>
+        <input type="text" id="secContactName" placeholder="Contact person's name" value="${secProfile.contactName||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.phone}</span> Contact Phone</label>
+        <input type="tel" id="secContactPhone" placeholder="Contact phone number" value="${secProfile.contactPhone||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.info}</span> Relationship</label>
+        <select id="secContactRel">
+          <option value="">Select relationship</option>
+          ${['Father','Mother','Brother','Sister','Friend','Guardian','Other'].map(r=>`<option value="${r}" ${secProfile.contactRel===r?'selected':''}>${r}</option>`).join('')}
+        </select></div>
+        
+      <button class="save-profile-button" onclick="window.__app.saveSecurityProfile()">
+        <span class="icon">${ICONS.save}</span> Save Security Profile</button>
+      <p id="secProfileStatus"></p>
+    </section>`;
+  }
+  else {
     let ch='';
     if(!contacts.length){
       ch=`<div class="empty-state" style="padding:20px 0;">
@@ -674,10 +713,11 @@ function renderProfilePage(){
       <p id="profileStatus"></p>
     </section>`;
   }
+  
   return `<div class="app" style="padding-bottom:85px;">
     <header class="profile-header">
       <button class="back-button" onclick="window.__app.navigateTo('home')"><span class="icon">${ICONS.chevronLeft}</span></button>
-      <div><h1>Profile</h1><p>Manage your health & contacts</p></div>
+      <div><h1>Profile</h1><p>Manage your health & security</p></div>
       <button class="theme-toggle" onclick="window.__app.toggleTheme()" style="margin-left:auto;"><span class="icon">${getThemeIcon()}</span></button>
     </header>
     ${tabsHtml}${formHtml}
@@ -1041,6 +1081,50 @@ const app={
     saveEmergencyContacts(contacts);
     const status=document.getElementById('profileStatus');
     if(status){status.textContent='Emergency contacts saved!';status.style.color='var(--success-text)';}
+  },
+
+    async saveSecurityProfile(){
+    const status=document.getElementById('secProfileStatus');
+    status.textContent='Saving...';status.style.color='var(--text-secondary)';
+    
+    const profile = {
+      name: document.getElementById('secName').value.trim(),
+      age: document.getElementById('secAge').value.trim(),
+      phone: document.getElementById('secPhone').value.trim(),
+      address: document.getElementById('secAddress').value.trim(),
+      contactName: document.getElementById('secContactName').value.trim(),
+      contactPhone: document.getElementById('secContactPhone').value.trim(),
+      contactRel: document.getElementById('secContactRel').value
+    };
+
+    if(!profile.name || !profile.phone) {
+      status.textContent='Name and Phone are required.';status.style.color='var(--bg-sos)'; return;
+    }
+
+    saveSecurityProfile(profile);
+    status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
+  },
+
+  async saveSecurityProfile(){
+    const status=document.getElementById('secProfileStatus');
+    status.textContent='Saving...';status.style.color='var(--text-secondary)';
+    
+    const profile = {
+      name: document.getElementById('secName').value.trim(),
+      age: document.getElementById('secAge').value.trim(),
+      phone: document.getElementById('secPhone').value.trim(),
+      address: document.getElementById('secAddress').value.trim(),
+      contactName: document.getElementById('secContactName').value.trim(),
+      contactPhone: document.getElementById('secContactPhone').value.trim(),
+      contactRel: document.getElementById('secContactRel').value
+    };
+
+    if(!profile.name || !profile.phone) {
+      status.textContent='Name and Phone are required.';status.style.color='var(--bg-sos)'; return;
+    }
+
+    saveSecurityProfile(profile);
+    status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
   },
 
   downloadQR(){
