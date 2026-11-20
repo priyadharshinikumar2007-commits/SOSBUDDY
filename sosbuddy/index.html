@@ -1019,7 +1019,17 @@ const app={
     currentPage=page;activeTab='health';
     renderPage();window.scrollTo({top:0,behavior:'smooth'});
   },
-  switchTab(t){activeTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
+  switchTab(t) {
+  activeTab = t;
+  renderPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (t === 'security') {
+    app.loadSecurityProfileFromBackend().then(() => {
+      renderPage();
+    });
+  }
+},
   switchAlertsTab(t){alertsTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
   switchQRTab(t){if(qrTab==='scan'&&t!=='scan')stopScanner();qrTab=t;renderPage();window.scrollTo({top:0,behavior:'smooth'})},
   startScanner(){startScanner()},
@@ -1082,63 +1092,97 @@ const app={
     if(status){status.textContent='Emergency contacts saved!';status.style.color='var(--success-text)';}
   },
 
-    async saveSecurityProfile(){
-    const status=document.getElementById('secProfileStatus');
-    status.textContent='Saving...';status.style.color='var(--text-secondary)';
     
-    const profile = {
-      profile_id: getProfileId(),
-      name: document.getElementById('secName').value.trim(),
-      age: document.getElementById('secAge').value.trim(),
-      phone: document.getElementById('secPhone').value.trim(),
-      address: document.getElementById('secAddress').value.trim(),
-      contactName: document.getElementById('secContactName').value.trim(),
-      contactPhone: document.getElementById('secContactPhone').value.trim(),
-      contactRel: document.getElementById('secContactRel').value
-    };
+async saveSecurityProfile() {
+  const status = document.getElementById('secProfileStatus');
 
-    if(!profile.name || !profile.phone) {
-      status.textContent='Name and Phone are required.';status.style.color='var(--bg-sos)'; return;
-    }
+  const profile = {
+    profile_id: getProfileId(),
+    name: document.getElementById('secName').value.trim(),
+    age: document.getElementById('secAge').value.trim(),
+    phone: document.getElementById('secPhone').value.trim(),
+    address: document.getElementById('secAddress').value.trim(),
+    contactName: document.getElementById('secContactName').value.trim(),
+    contactPhone: document.getElementById('secContactPhone').value.trim(),
+    contactRel: document.getElementById('secContactRel').value
+  };
 
-    try {
-      const res = await fetch(SOS_API_BASE + '/api/security-profiles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
-      });
-      const data = await res.json();
-      if(data.ok) {
-        saveSecurityProfile(profile); // Local storage la save panna
-        status.textContent='Security Profile saved!';status.style.color='var(--success-text)';
-      } else {
-        status.textContent='Failed: ' + (data.error || 'Unknown error');status.style.color='var(--bg-sos)';
-      }
-    } catch(err) {
-      status.textContent='Network error: ' + err.message;status.style.color='var(--bg-sos)';
-    }
-  },
+  if (!profile.name || !profile.phone) {
+    status.textContent = 'Name and Phone are required.';
+    status.style.color = 'var(--bg-sos)';
+    return;
+  }
 
-  downloadQR(){
-    const canvas=document.getElementById('myQRCanvas');
-    if(!canvas)return;
-    const link=document.createElement('a');
-    link.download='sos-buddy-qr.png';
-    link.href=canvas.toDataURL('image/png');
-    link.click();
-  },
-  
-  shareQR(){
-    const canvas=document.getElementById('myQRCanvas');
-    if(!canvas)return;
-    canvas.toBlob(blob=>{
-      if(navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],'qr.png',{type:'image/png'})]})){
-        navigator.share({files:[new File([blob],'sos-buddy-qr.png',{type:'image/png'})],title:'SOS Buddy QR'}).catch(()=>{});
-      }else{
-        alert('Sharing is not supported on this device. Please download the QR code instead.');
-      }
+  status.textContent = 'Saving...';
+
+  try {
+    const res = await fetch(SOS_API_BASE + '/api/security-profiles', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': SOS_API_KEY
+      },
+      body: JSON.stringify(profile)
     });
-  },
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Unable to save Security Profile');
+    }
+
+    // Keep a local copy after successful backend save
+    saveSecurityProfile(profile);
+
+    status.textContent = 'Security Profile saved successfully!';
+    status.style.color = 'var(--success-text)';
+
+  } catch (err) {
+    status.textContent = 'Failed to save: ' + err.message;
+    status.style.color = 'var(--bg-sos)';
+  }
+},
+
+
+async loadSecurityProfileFromBackend() {
+  try {
+    const profileId = getProfileId();
+
+    if (!profileId) {
+      console.log('Profile ID not found');
+      return;
+    }
+
+    const res = await fetch(
+      SOS_API_BASE + '/api/security-profiles/' + encodeURIComponent(profileId),
+      {
+        method: 'GET',
+        headers: {
+          'x-api-key': SOS_API_KEY
+        }
+      }
+    );
+
+    if (!res.ok) {
+      console.log('Security Profile not found in backend');
+      return;
+    }
+
+    const data = await res.json();
+
+    if (data.ok && data.profile) {
+      localStorage.setItem(
+        'SECURITY_PROFILE',
+        JSON.stringify(data.profile)
+      );
+      console.log('Security Profile loaded successfully');
+    }
+
+  } catch (err) {
+    console.error('Error loading Security Profile:', err);
+  }
+},
+
 
   async triggerSOS(sosType){
     const status=document.getElementById('sosStatus');
