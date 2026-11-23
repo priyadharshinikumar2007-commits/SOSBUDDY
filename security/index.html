@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Buddy | Security Response Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-shell" id="dashboardApp">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">SOS</div><div><b>SOS BUDDY</b><small>Be Safe. Always.</small></div><button class="close-nav" id="closeNav">×</button></div>
+    <div class="workspace-label">WORKSPACE</div>
+    <nav>
+      <button class="nav-link active" data-view="overview"><span>▦</span> Overview</button>
+      <button class="nav-link" data-view="live"><span>◉</span> Live Emergencies <i class="nav-count" id="navCount">0</i></button>
+      <button class="nav-link" data-view="history"><span>◷</span> Incident History</button>
+      <button class="nav-link" data-view="access"><span>♙</span> Profile & Access</button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="shield-art"><div class="shield">◆</div><span>SECURITY<br>RESPONSE</span></div>
+      <div class="help-card"><span>◉</span><div><b>Need assistance?</b><small>Contact system support</small></div></div>
+      <div class="side-foot">SOS BUDDY <span>v1.1</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div class="page-heading"><div class="eyebrow">EMERGENCY MANAGEMENT</div><h1>Security Response Centre</h1><p>Monitor, acknowledge and coordinate security incidents.</p></div>
+      <div class="top-actions"><div class="system-pill"><span class="pulse" id="connDot"></span><div><b id="connText">Connecting…</b><small id="soundState">Live alert channel</small></div></div><div class="role-badge" id="signedRole">POLICE ACCESS</div><div class="user-chip"><div class="avatar" id="userAvatar">PR</div><div><b id="userRoleName">Police Responder</b><small id="signedEmail">Authorized account</small></div><button class="logout-btn" id="logoutBtn">Log out</button></div></div>
+    </header>
+
+    <div class="demo-banner"><span>ⓘ</span><div><b>LIVE ALERT FEED — SOS BUDDY APP</b><small>Incidents and citizen details below come from the SOS Buddy app in real time. The map and escalation panel are previews.</small></div></div>
+
+    <section class="view active" id="overviewView">
+      <div class="section-head"><div><h2>Command overview</h2><p>Live operational snapshot of security incidents.</p></div><div class="date-chip" id="todayLabel">Today</div></div>
+      <div class="stats-grid">
+        <article class="stat-card red"><div class="stat-top"><span>ACTIVE EMERGENCIES</span><span class="stat-icon">!</span></div><strong id="activeCount">0</strong><div class="stat-bottom"><span class="dot red-dot"></span> Require attention</div><div class="spark red-spark">⌁⌁⌁</div></article>
+        <article class="stat-card amber"><div class="stat-top"><span>AWAITING RESPONSE</span><span class="stat-icon">◷</span></div><strong id="pendingCount">0</strong><div class="stat-bottom"><span class="dot amber-dot"></span> Not yet accepted</div><div class="spark amber-spark">⌁⌁⌁</div></article>
+        <article class="stat-card green"><div class="stat-top"><span>RESPONDERS ACCEPTED</span><span class="stat-icon">✓</span></div><strong id="acceptedCount">0</strong><div class="stat-bottom"><span class="dot green-dot"></span> Responding to incidents</div><div class="spark green-spark">⌁⌁⌁</div></article>
+        <article class="stat-card blue"><div class="stat-top"><span>RESOLVED INCIDENTS</span><span class="stat-icon">↗</span></div><strong id="resolvedCount">0</strong><div class="stat-bottom"><span class="dot blue-dot"></span> Closed out</div><div class="spark blue-spark">⌁⌁⌁</div></article>
+      </div>
+
+      <div class="content-grid">
+        <section class="panel map-panel">
+          <div class="panel-head"><div><span class="panel-symbol">⌖</span><div><h3>Live emergency map</h3><p>Locations of active security incidents</p></div></div><span class="live-tag"><i></i> LIVE</span></div>
+          <div class="map-area"><div id="liveMap"></div></div>
+        </section>
+
+        <section class="panel alerts-panel">
+          <div class="panel-head"><div><span class="panel-symbol red-text">♧</span><div><h3>Live emergency alerts</h3><p>Prioritized incidents</p></div></div><button class="text-button" data-goto="live">View all →</button></div>
+          <div class="alert-list" id="alertList"></div>
+        </section>
+      </div>
+
+      <div class="bottom-grid">
+        <section class="panel response-panel"><div class="panel-head"><div><span class="panel-symbol blue-text">▥</span><div><h3>Response status</h3><p>Current incident distribution</p></div></div></div><div class="response-content"><div class="donut"><div><b id="responsePercent">0%</b><small>Accepted</small></div></div><div class="response-legend"><div><i class="green-bg"></i> Accepted <b id="legendAccepted">0</b></div><div><i class="amber-bg"></i> Pending <b id="legendPending">0</b></div><div><i class="red-bg"></i> Failed <b>0</b></div></div></div></section>
+        <section class="panel escalation-panel"><div class="panel-head"><div><span class="panel-symbol amber-text">◷</span><div><h3>15-second escalation</h3><p>Contact acknowledgment monitor</p></div></div><span class="timer-badge" id="timerBadge">15s</span></div><div class="timer-track"><div id="timerBar"></div></div><div class="escalation-message"><span>ⓘ</span><p><b>Escalation preview</b><br>If no emergency contact acknowledges within 15 seconds, nearby verified helpers are notified. Press the button to preview the countdown.</p></div><button class="outline-button" id="simulateEscalation">Simulate escalation</button></section>
+        <section class="panel activity-panel"><div class="panel-head"><div><span class="panel-symbol green-text">⌁</span><div><h3>Recent activity</h3><p>Latest events this session</p></div></div></div><div class="activity-list" id="activityList"><div class="empty-state" id="activityEmpty">No activity yet.</div></div></section>
+      </div>
+    </section>
+
+    <section class="view" id="liveView">
+      <div class="section-head"><div><h2>Live emergencies</h2><p>Review incident details and update your response.</p></div><span class="count-chip" id="liveTotal">0 incidents</span></div>
+      <div class="filter-row"><div class="search-box">⌕ <input id="incidentSearch" placeholder="Search by name, address or ID..."></div><select id="statusFilter"><option value="All">All statuses</option><option value="Awaiting response">Awaiting response</option><option value="Accepted">Accepted</option><option value="Resolved">Resolved</option></select></div>
+      <div class="incident-table-wrap"><table><thead><tr><th>INCIDENT</th><th>ADDRESS</th><th>ACTIVATED</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="incidentRows"></tbody></table></div>
+    </section>
+
+    <section class="view" id="historyView">
+      <div class="section-head"><div><h2>Incident history</h2><p>Resolved security incidents.</p></div></div>
+      <div class="history-cards" id="historyCards"></div>
+    </section>
+
+    <section class="view" id="accessView">
+      <div class="section-head"><div><h2>Profile & access</h2><p>Role preview and permission boundaries.</p></div></div>
+      <div class="access-grid"><article class="panel access-card"><div class="avatar large" id="accessAvatar">PR</div><h3 id="accessRole">Police Responder</h3><p>Authorized account</p><span class="verified-pill">✓ Signed in</span><div class="access-line"><span>Current role</span><b id="accessRoleValue">Police</b></div><div class="access-line"><span>Dashboard</span><b>Security Response</b></div><div class="access-line"><span>Alert channel</span><b id="accessChannel">Live</b></div></article><article class="panel permissions"><h3>Role-based access preview</h3><div class="permission-row"><span>Police</span><p>Receive security alerts instantly, view the citizen's saved security profile and update response status.</p></div><div class="permission-row"><span>NGO</span><p>Receive the same live alerts and update response status.</p></div><div class="permission-row"><span>Helper</span><p>Receive live alerts; incident history and access pages are not enabled for this role.</p></div><div class="permission-note" id="rolePermissionNote">Your role determines which sections are visible. The server verifies your credentials on every request.</div></article></div>
+    </section>
+    <footer>© 2026 SOS Buddy · Security Response Centre <span>Live alert feed</span></footer>
+  </main>
+</div>
+
+<div class="modal-backdrop" id="incidentModal"><div class="modal"><button class="modal-close" id="modalClose">×</button><div class="modal-kicker" id="modalKicker">SECURITY INCIDENT</div><h2 id="modalName">Incident details</h2><p class="modal-sub" id="modalId"></p><div class="modal-details" id="modalDetails"></div><div class="modal-warning">Confidential — these details come from the citizen's saved Security Profile. Use them only to respond to this emergency.</div><div class="modal-actions"><button class="secondary-button" id="modalClose2">Close</button><button class="secondary-button" id="modalResolve" style="display:none">Mark Resolved</button><button class="primary-button" id="modalAccept">Accept Emergency</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body></html>

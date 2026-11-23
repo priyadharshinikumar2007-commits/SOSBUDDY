@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOS Buddy | Responder Sign-in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="login.css">
+</head>
+<body>
+<main class="page">
+  <header class="brand">
+    <div class="brand-mark">SOS</div>
+    <div><b>SOS BUDDY</b><small>Be Safe. Always.</small></div>
+  </header>
+
+  <div class="layout">
+    <section class="intro">
+      <div class="kicker"><span class="pulse"></span> EMERGENCY RESPONSE NETWORK</div>
+      <h1>Every second matters.<br><em>Every response counts.</em></h1>
+      <p>One sign-in for the teams that answer SOS Buddy alerts. The moment someone raises an emergency, the right team is notified with the person's saved details.</p>
+
+      <div class="domains">
+        <div class="domain health">
+          <span class="domain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/><polyline points="3.5 12 7 12 9 8 12 16 15 12 20.5 12"/></svg></span>
+          <div><b>Health emergencies</b><small>Hospital teams receive the patient's medical profile: blood group, conditions, allergies and medications.</small></div>
+        </div>
+        <div class="domain security">
+          <span class="domain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/><path d="M12 14v4"/></svg></span>
+          <div><b>Security emergencies</b><small>Police, NGO and Helper teams receive the person's address, phone and emergency contact.</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Welcome back</h2>
+      <p class="subtitle">Choose your team and sign in with your registered account.</p>
+      <form id="loginForm">
+        <label for="loginRole">LOGIN AS</label>
+        <select id="loginRole" required>
+          <optgroup label="Health">
+            <option value="Hospital">Hospital Staff</option>
+          </optgroup>
+          <optgroup label="Security">
+            <option value="Police">Police Responder</option>
+            <option value="NGO">NGO Responder</option>
+            <option value="Helper">Verified Helper</option>
+          </optgroup>
+        </select>
+        <label for="loginEmail">USERNAME / EMAIL</label>
+        <input id="loginEmail" type="text" autocomplete="username" placeholder="Enter your username" required>
+        <label for="loginPassword">PASSWORD</label>
+        <div class="password-wrap"><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Enter your password" required><button type="button" id="togglePassword">Show</button></div>
+        <div class="error" id="loginError" role="alert"></div>
+        <button class="submit" id="submitBtn" type="submit">Sign in to dashboard <span>→</span></button>
+      </form>
+    </section>
+  </div>
+
+  <section class="accounts">
+    <div class="accounts-title">RESPONDER ACCOUNTS <span>Tap an account to fill the form</span></div>
+    <div class="accounts-grid">
+      <button type="button" class="acct health" data-role="Hospital" data-user="hospital" data-pass="hospital123"><i>Health</i><b>Hospital</b><code>hospital</code><code>hospital123</code></button>
+      <button type="button" class="acct security" data-role="Police" data-user="police@sosbuddy.demo" data-pass="Police@123"><i>Security</i><b>Police</b><code>police@sosbuddy.demo</code><code>Police@123</code></button>
+      <button type="button" class="acct security" data-role="NGO" data-user="ngo@sosbuddy.demo" data-pass="NGO@123"><i>Security</i><b>NGO</b><code>ngo@sosbuddy.demo</code><code>NGO@123</code></button>
+      <button type="button" class="acct security" data-role="Helper" data-user="helper@sosbuddy.demo" data-pass="Helper@123"><i>Security</i><b>Helper</b><code>helper@sosbuddy.demo</code><code>Helper@123</code></button>
+    </div>
+  </section>
+  <p class="foot">Authorized responders only.</p>
+</main>
+<script src="login.js"></script>
+</body>
+</html>

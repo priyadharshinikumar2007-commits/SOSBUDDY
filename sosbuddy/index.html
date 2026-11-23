@@ -12,12 +12,12 @@
   --bg-monitor:#f8fafc;--bg-monitor-icon:#e2e8f0;--bg-info-box:#f8fafc;--bg-emergency-icon:#fee2e2;
   --bg-alert-status:#fffbeb;--bg-alert-status-done:#ecfdf5;--bg-timeline-icon:#f1f5f9;
   --bg-timeline-done:#dcfce7;--bg-modal:#fff;--bg-modal-overlay:rgba(15,23,42,.55);--bg-qr:#fff;
-  --text-primary:#0f172a;--text-secondary:#64748b;--text-muted:#94a3b8;--text-label:#334155;
+  --text-primary:#0f172a;--text-secondary:#56657a;--text-muted:#64748b;--text-label:#334155;
   --text-input-bg:#f8fafc;--border-color:#e5e7eb;--border-light:#e2e8f0;
   --shadow-card:0 8px 16px rgba(0,0,0,.03);--shadow-sos:0 8px 20px rgba(220,38,38,.25);
   --shadow-modal:0 20px 50px rgba(0,0,0,.15);--nav-bg:#fff;--nav-border:#e5e7eb;
-  --nav-inactive:#94a3b8;--nav-active:#dc2626;--success-text:#16a34a;--warning-text:#92400e;
-  --success-dot:#10b981;--warning-dot:#f59e0b;--green-dot:#22c55e;
+  --nav-inactive:#64748b;--nav-active:#dc2626;--success-text:#16a34a;--warning-text:#92400e;
+  --success-dot:#10b981;--warning-dot:#f59e0b;--green-dot:#22c55e;--text-security:#2563eb;
 }
 [data-theme="dark"]{
   --bg-body:#0b1120;--bg-app:#111827;--bg-card:#1e293b;--bg-card-alt:#1e293b;--bg-icon:#334155;
@@ -26,11 +26,11 @@
   --bg-emergency-icon:#7f1d1d;--bg-alert-status:#422006;--bg-alert-status-done:#064e3b;
   --bg-timeline-icon:#334155;--bg-timeline-done:#064e3b;--bg-modal:#1e293b;
   --bg-modal-overlay:rgba(0,0,0,.7);--bg-qr:#f8fafc;--text-primary:#f1f5f9;
-  --text-secondary:#94a3b8;--text-muted:#64748b;--text-label:#cbd5e1;--text-input-bg:#1e293b;
+  --text-secondary:#aab8cc;--text-muted:#94a3b8;--text-label:#cbd5e1;--text-input-bg:#1e293b;
   --border-color:#334155;--border-light:#334155;--shadow-card:0 8px 16px rgba(0,0,0,.3);
   --shadow-sos:0 8px 20px rgba(220,38,38,.4);--shadow-modal:0 20px 50px rgba(0,0,0,.5);
-  --nav-bg:#111827;--nav-border:#1e293b;--nav-inactive:#64748b;--nav-active:#f87171;
-  --success-text:#34d399;--warning-text:#fbbf24;--success-dot:#34d399;--warning-dot:#fbbf24;--green-dot:#34d399;
+  --nav-bg:#111827;--nav-border:#1e293b;--nav-inactive:#94a3b8;--nav-active:#f87171;
+  --success-text:#34d399;--warning-text:#fbbf24;--success-dot:#34d399;--warning-dot:#fbbf24;--green-dot:#34d399;--text-security:#93c5fd;
 }
 *{margin:0;padding:0;box-sizing:border-box;transition:background-color .25s,color .2s,border-color .25s}
 body{font-family:'Segoe UI',Roboto,Arial,sans-serif;background:var(--bg-body);color:var(--text-primary);line-height:1.4}
@@ -239,7 +239,7 @@ svg{max-width:100%;max-height:100%}
   border-radius:20px;padding:6px 18px;box-shadow:var(--shadow-card)}
 .ehp-row{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border-light)}
 .ehp-row:last-child{border-bottom:none}
-.ehp-icon{width:40px;height:40px;border-radius:12px;flex-shrink:0;padding:9px;background:var(--bg-icon);color:var(--bg-security);overflow:hidden}
+.ehp-icon{width:40px;height:40px;border-radius:12px;flex-shrink:0;padding:9px;background:var(--bg-icon);color:var(--text-security);overflow:hidden}
 .ehp-icon svg{width:22px;height:22px;display:block}
 .ehp-label{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-secondary)}
 .ehp-value{font-size:17px;line-height:1.4;color:var(--text-primary);margin-top:3px;white-space:pre-line;word-break:break-word}
@@ -263,14 +263,14 @@ svg{max-width:100%;max-height:100%}
 .ehp-sos-btn:disabled{opacity:.85;cursor:not-allowed}
 .ehp-status{font-size:14px;line-height:1.5;color:var(--text-primary);margin-top:10px;max-height:38vh;overflow-y:auto}
 .ehp-status:empty{display:none}
-.ehp-status a{color:var(--bg-security);font-weight:800}
+.ehp-status a{color:var(--text-security);font-weight:800}
 .ehp-call{display:inline-block;margin-top:4px;padding:8px 14px;border-radius:10px;
   background:var(--bg-security);color:#fff !important;text-decoration:none}
 .fall-content{padding:6px 20px 24px;display:flex;flex-direction:column;gap:16px}
 .fall-card{background:var(--bg-card);border:1px solid var(--border-color);border-radius:18px;padding:18px;box-shadow:var(--shadow-card)}
 .fall-badge{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;
   letter-spacing:.6px;text-transform:uppercase;padding:5px 10px;border-radius:999px;
-  background:var(--bg-security-light);color:var(--bg-security)}
+  background:var(--bg-security-light);color:var(--text-security)}
 .fall-hero-top{display:flex;align-items:center;gap:14px;margin-bottom:12px}
 .fall-hero-icon{width:54px;height:54px;border-radius:16px;flex-shrink:0;
   background:linear-gradient(135deg,var(--bg-security),#7c3aed);color:#fff;
@@ -331,6 +331,20 @@ svg{max-width:100%;max-height:100%}
 .modal-close .icon{width:18px;height:18px}
 .hidden{display:none !important}
 @media (max-width:480px){.app,.bottom-nav{max-width:100%}}
+
+/* ---- Light/dark readability fixes ---- */
+button{color:inherit;font-family:inherit}
+.modal-close.secondary{background:var(--bg-icon);color:var(--text-primary);border:1px solid var(--border-color)}
+.emergency-title{color:var(--bg-sos-hover)}
+.contact-avatar,.relationship-badge,.alert-item-status.active{color:#b91c1c}
+.alert-item-status.closed,.resolve-button{color:#166534}
+.tab-count{background:#dc2626}
+.fall-badge{color:#1d4ed8}
+[data-theme="dark"] .emergency-title{color:#fca5a5}
+[data-theme="dark"] .contact-avatar,[data-theme="dark"] .relationship-badge,[data-theme="dark"] .alert-item-status.active{color:#fecaca}
+[data-theme="dark"] .alert-item-status.closed,[data-theme="dark"] .resolve-button{color:#86efac}
+[data-theme="dark"] .fall-badge{color:#bfdbfe}
+[data-theme="dark"] .choice-title,[data-theme="dark"] .modal h3{color:var(--text-primary)}
 </style>
 </head>
 <body>
@@ -362,7 +376,7 @@ global.QRCode={toCanvas:function(canvas,text,o){o=o||{};var w=o.width||300,mg=o.
 /* ============================================================ 
    CONFIG 
    ============================================================ */
-const SOS_API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
+const SOS_API_BASE = (new URLSearchParams(location.search).get('api') || 'https://sos-backend-production-0e25.up.railway.app').replace(/\/$/, '');
 const SOS_API_KEY = 'dev-local-shared-key-change-me';
 
 /* ============================================================ 
@@ -464,7 +478,8 @@ async function saveProfileToBackend(profile){
   const body={profile_id:getProfileId(),name:profile.name||'',dob:profile.dob||'',
     blood:profile.bloodGroup||'',allergies:profile.allergies||'',
     conditions:profile.medicalConditions||'',medications:profile.medications||'',
-    other_info:profile.otherInfo||''};
+    other_info:profile.otherInfo||'',
+    contact_name:profile.contactName||'',contact_phone:profile.contactPhone||'',contact_rel:profile.contactRel||''};
   const r=await fetch(SOS_API_BASE+'/api/profiles',{
     method:'POST',headers:{'Content-Type':'application/json','x-api-key':SOS_API_KEY},
     body:JSON.stringify(body)});
@@ -634,8 +649,8 @@ function renderProfilePage(){
               <span class="icon" style="width:32px;height:32px;">${ICONS.heartPulse}</span>
             </div>
             <div>
-              <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;">Health Emergency Profile</h2>
-              <p style="font-size:12px;color:#64748b;line-height:1.5;">Medical info, blood group, allergies</p>
+              <h2 style="font-size:18px;font-weight:800;color:var(--text-primary);margin-bottom:4px;">Health Emergency Profile</h2>
+              <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Medical info, blood group, allergies</p>
             </div>
           </button>
 
@@ -644,8 +659,8 @@ function renderProfilePage(){
               <span class="icon" style="width:32px;height:32px;">${ICONS.securityOfficer}</span>
             </div>
             <div>
-              <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:4px;">Security Emergency Profile</h2>
-              <p style="font-size:12px;color:#64748b;line-height:1.5;">Personal & emergency contact details</p>
+              <h2 style="font-size:18px;font-weight:800;color:var(--text-primary);margin-bottom:4px;">Security Emergency Profile</h2>
+              <p style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Personal & emergency contact details</p>
             </div>
           </button>
         </div>
@@ -681,6 +696,16 @@ function renderProfilePage(){
         <textarea id="medications" placeholder="e.g. Metformin 500 mg twice daily" rows="3">${profile.medications||''}</textarea></div>
       <div class="form-group"><label><span class="icon">${ICONS.info}</span> Other Info (optional)</label>
         <textarea id="otherInfo" placeholder="e.g. Pacemaker" rows="3">${profile.otherInfo||''}</textarea></div>
+      <h3 style="font-size:14px;margin:20px 0 10px;color:var(--text-primary);">Emergency Contact</h3>
+      <div class="form-group"><label><span class="icon">${ICONS.users}</span> Contact Name</label>
+        <input type="text" id="hContactName" placeholder="Contact person's name" value="${profile.contactName||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.phone}</span> Contact Phone</label>
+        <input type="tel" id="hContactPhone" placeholder="Contact phone number" value="${profile.contactPhone||''}"></div>
+      <div class="form-group"><label><span class="icon">${ICONS.info}</span> Relationship</label>
+        <select id="hContactRel">
+          <option value="">Select relationship</option>
+          ${['Father','Mother','Brother','Sister','Friend','Guardian','Other'].map(r=>`<option value="${r}" ${profile.contactRel===r?'selected':''}>${r}</option>`).join('')}
+        </select></div>
       <button class="save-profile-button" onclick="window.__app.saveProfile()">
         <span class="icon">${ICONS.save}</span> Save Health Profile</button>
       <p id="profileStatus"></p>
@@ -1049,7 +1074,10 @@ const app={
       medicalConditions:document.getElementById('conditions').value.trim(),
       dob:document.getElementById('dob').value,
       medications:document.getElementById('medications').value.trim(),
-      otherInfo:document.getElementById('otherInfo').value.trim()
+      otherInfo:document.getElementById('otherInfo').value.trim(),
+      contactName:document.getElementById('hContactName').value.trim(),
+      contactPhone:document.getElementById('hContactPhone').value.trim(),
+      contactRel:document.getElementById('hContactRel').value
     };
     const status=document.getElementById('profileStatus');
     status.textContent='Saving...';status.style.color='var(--text-secondary)';
@@ -1107,8 +1135,8 @@ async saveSecurityProfile() {
     contactRel: document.getElementById('secContactRel').value
   };
 
-  if (!profile.name || !profile.phone) {
-    status.textContent = 'Name and Phone are required.';
+  if (!profile.name || !profile.phone || !profile.address) {
+    status.textContent = 'Name, Phone and Address are required.';
     status.style.color = 'var(--bg-sos)';
     return;
   }
@@ -1171,10 +1199,9 @@ async loadSecurityProfileFromBackend() {
     const data = await res.json();
 
     if (data.ok && data.profile) {
-      localStorage.setItem(
-        'SECURITY_PROFILE',
-        JSON.stringify(data.profile)
-      );
+      const p = data.profile;
+      saveSecurityProfile({ profile_id: p.profile_id, name: p.name || '', age: p.age || '', phone: p.phone || '',
+        address: p.address || '', contactName: p.contact_name || '', contactPhone: p.contact_phone || '', contactRel: p.contact_rel || '' });
       console.log('Security Profile loaded successfully');
     }
 
@@ -1184,64 +1211,72 @@ async loadSecurityProfileFromBackend() {
 },
 
 
-  async triggerSOS(sosType){
+  closeModal(){const o=document.querySelector('.modal-overlay');if(o)o.remove()},
+
+  triggerSOS(type){
+    const self=this;
+    self.closeModal();
+    if(type==='security'){
+      const sp=getSecurityProfile();
+      if(!sp||!sp.name||!sp.phone||!sp.address){
+        alert('Please complete and save your Security Profile first (name, phone and address).');
+        self.navigateTo('profile');self.switchTab('security');return;
+      }
+    }else{
+      const hp=getHealthProfile();
+      if(!hp||!hp.name||!hp.bloodGroup){
+        alert('Please complete and save your Health Profile first.');
+        self.navigateTo('profile');self.switchTab('health');return;
+      }
+    }
+    return self.sendSOS(type);
+  },
+
+  async sendSOS(type){
+    const self=this, isSec=type==='security';
     const status=document.getElementById('sosStatus');
-    if(status){ status.textContent = 'Sending SOS...'; status.style.color = 'var(--text-secondary)'; }
-    
-    try {
-      const position = await new Promise((resolve, reject) => {
-        if(!navigator.geolocation){ reject(new Error('Geolocation not supported')); return; }
-        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:10000 });
+    const say=(t,c)=>{if(status){status.textContent=t;status.style.color=c||'var(--text-secondary)'}};
+    say('Getting your location...');
+    const pos=await new Promise(resolve=>{
+      if(!navigator.geolocation)return resolve(null);
+      navigator.geolocation.getCurrentPosition(p=>resolve(p.coords),()=>resolve(null),{enableHighAccuracy:true,timeout:8000,maximumAge:30000});
+    });
+    say(isSec?'Alerting police and NGO responders...':'Sending SOS to the hospital...');
+    try{
+      const r=await fetch(SOS_API_BASE+(isSec?'/api/security-incidents':'/api/incidents'),{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':SOS_API_KEY},
+        body:JSON.stringify({
+          profile_id:getProfileId(),
+          latitude:pos?pos.latitude:null,longitude:pos?pos.longitude:null,
+          source:'in-app',
+          idempotency_key:'app-'+type+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)
+        })
       });
-
-      const profile = getHealthProfile() || {};
-      const incidentId = 'INC-' + Date.now().toString(36).toUpperCase();
-      
-      const payload = {
-        incident_id: incidentId,
-        profile_id: getProfileId(),
-        sos_type: sosType,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        name: profile.name || 'Unknown',
-        blood: profile.bloodGroup || '',
-        allergies: profile.allergies || '',
-        conditions: profile.medicalConditions || '',
-        medications: profile.medications || ''
-      };
-
-      const res = await fetch(SOS_API_BASE + '/api/scan/' + encodeURIComponent(getProfileId()), {
-        method:'GET'
-      });
-      
-      const incident = {
-        incidentId,
-        sosType,
-        typeLabel: sosType === 'security' ? 'Security Emergency' : 'Health Emergency',
-        status:'ACTIVE',
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        createdAtFull: new Date().toISOString(),
-        emergencyContact: (getEmergencyContacts()[0] || {}).phone || '--',
-        timeline: [
-          { status: sosType === 'security' ? 'Security Emergency Triggered' : 'Health Emergency Triggered', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Person Identified', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Location Confirmed', completed:true, time:new Date().toLocaleTimeString() },
-          { status:'Emergency Contact Notified', completed:false, time:'' },
-          { status:'Response Requested', completed:false, time:'' }
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||!data.ok)throw new Error(data.error||('HTTP '+r.status));
+      const inc=data.incident;
+      const t=new Date(inc.created_at).toTimeString().split(' ')[0];
+      const contact=inc.contact_name?inc.contact_name+(inc.contact_phone?' ('+inc.contact_phone+')':''):'--';
+      const label=isSec?'Security Emergency':'Health Emergency';
+      saveActiveIncident({
+        incidentId:inc.incident_id,status:'ACTIVE',sosType:type,typeLabel:label,
+        name:inc.name,emergencyContact:contact,latitude:inc.latitude,longitude:inc.longitude,
+        createdAt:t,createdAtFull:inc.created_at,responseStatus:'Waiting for response',
+        timeline:[
+          {status:label+' Triggered',completed:true,time:t},
+          {status:'Person Identified',completed:true,time:t},
+          {status:'Location Confirmed',completed:inc.latitude!=null,time:inc.latitude!=null?t:''},
+          {status:'Emergency Contact Notified',completed:false,time:''},
+          {status:'Response Requested',completed:false,time:''}
         ]
-      };
-      saveActiveIncident(incident);
-      addToHistory(incident);
-      
-      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
-      currentPage = 'emergency';
-      renderPage();
-
-    } catch(err) {
-      if(status){ status.textContent = 'SOS failed: ' + err.message; status.style.color = 'var(--bg-sos)'; }
-      const modal = document.querySelector('.modal-overlay'); if(modal) modal.remove();
-      alert('Could not send SOS: ' + err.message);
+      });
+      say((isSec?'Alert sent to police & NGO':'SOS sent to the hospital')+' - Incident '+inc.incident_id,'var(--success-text)');
+      self.navigateTo('emergency');
+    }catch(err){
+      console.error('SOS send failed',err);
+      say('Could not send the alert. Call 112.','var(--bg-sos)');
+      alert('Could not send the alert. Please call 112.\n\n'+(err.message||err));
     }
   },
 

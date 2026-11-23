@@ -11,7 +11,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-s
   background:#f3f6fb;color:#17243b;-webkit-font-smoothing:antialiased}
 svg{display:block}
 .layout{display:flex;min-height:100vh}
-.sidebar{width:230px;background:#13233f;color:#fff;padding:22px 14px;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar{width:230px;background:#13233f;color:#fff;padding:22px 14px;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;align-self:flex-start;overflow-y:auto}
 .logo{font-size:19px;font-weight:800;margin-bottom:28px;display:flex;align-items:center;gap:9px}
 .logo svg{width:22px;height:22px;color:#ff555d}
 .logo span{color:#ff555d}
@@ -57,9 +57,10 @@ tbody tr:hover{background:#f5f8ff}
 tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 .empty{padding:30px;text-align:center;color:#94a3b8;font-size:13px}
 .status{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10.5px;font-weight:700}
-.status.NEW{background:#fff0f0;color:#cf343b}
+.status.NEW,.status.WAITING-FOR-RESPONSE{background:#fff0f0;color:#cf343b}
 .status.ACKNOWLEDGED{background:#eaf1ff;color:#315bc1}
-.status.IN-PROGRESS,.status.Dispatched{background:#fff2d9;color:#986307}
+.status.IN-PROGRESS,.status.Dispatched,.status.AMBULANCE-DISPATCHED{background:#fff2d9;color:#986307}
+.status.PATIENT-RECEIVED{background:#e5f8ef;color:#16815e}
 .status.RESOLVED{background:#e5f8ef;color:#16815e}
 .toast{position:fixed;bottom:20px;right:20px;background:#13233f;color:#fff;padding:13px 17px;
   border-radius:10px;display:none;max-width:340px;font-size:13px;z-index:10;
@@ -149,7 +150,7 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 .detail{border:1px solid #e8edf4;border-radius:9px;padding:11px;background:#fcfdff}
 .detail label{font-size:10.5px;color:#7b879a;font-weight:600;display:block;margin-bottom:4px}
 @media (max-width:1050px){.grid{grid-template-columns:1fr}}
-@media (max-width:650px){.layout{display:block}.sidebar{width:100%}.main{padding:14px}.stats{grid-template-columns:1fr}}
+@media (max-width:650px){.layout{display:block}.sidebar{width:100%;position:static;height:auto}.main{padding:14px}.stats{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -247,7 +248,7 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
       <div class="popup-header-icon"><svg><use href="#i-alert"/></svg></div>
       <div>
         <h2>NEW MEDICAL EMERGENCY</h2>
-        <p>A new SOS has been received via QR scan.</p>
+        <p>A new SOS has just been received.</p>
       </div>
       <button class="popup-close-x" onclick="closePopup()"><svg><use href="#i-x"/></svg></button>
     </div>
@@ -292,26 +293,24 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="/socket.io/socket.io.js"></script>
 
 <!-- Keep the next main <script> block here; delete only the panel-creating inline script. -->
 <script>
-const API_BASE = 'https://sos-backend-production-0e25.up.railway.app';
+const DEFAULT_API = 'https://sos-backend-production-0e25.up.railway.app';
+const onLocalhost = /^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const savedApi = (() => { try { return sessionStorage.getItem('sosbuddy-api'); } catch (_) { return null; } })();
+const API_BASE = (new URLSearchParams(location.search).get('api') || savedApi || (onLocalhost ? location.origin : DEFAULT_API)).replace(/\/$/, '');
 const LS_KEY = 'sosbuddy-dashboard-auth';
 const SEEN_KEY = 'sosbuddy-seen-ids-v11';
 const DEFAULT_CENTER = [13.0827, 80.2707];
+const isNewStatus = st => st === 'NEW' || st === 'WAITING FOR RESPONSE';
+const isActiveStatus = st => ['ACKNOWLEDGED', 'IN PROGRESS', 'Dispatched', 'AMBULANCE DISPATCHED', 'PATIENT RECEIVED'].includes(st);
 
 let incidents = [];
 let selectedId = null;
 let authHeader = null;
 let currentPopupIncidentId = null;
 
-// --- SOCKET.IO SETUP ---
-const socket = io(API_BASE);
-socket.on('connect', () => {
-    console.log('Socket connected for real-time alerts');
-    socket.emit('join_hospital', { hospital_id: 'default' }); 
-});
 
 // --- AUDIO SETUP ---
 let audioCtx = null;
@@ -330,27 +329,6 @@ function playSiren() {
     osc.start();
     osc.stop(audioCtx.currentTime + 1.2);
 }
-
-// --- LISTEN FOR REAL-TIME EMERGENCIES ---
-socket.on("new_emergency", (data) => {
-    playSiren();
-    
-    const newInc = {
-        incident_id: data.incidentId,
-        name: data.patientName,
-        age: data.age,
-        scanTime: data.scanTime,
-        location: data.location,
-        status: 'NEW',
-        created_at: new Date().toISOString()
-    };
-
-    if(incidents.some(i => i.incident_id === newInc.incident_id)) return;
-
-    incidents.unshift(newInc);
-    renderAll();
-    showPopup(newInc);
-});
 
 const SAMPLE_INCIDENTS = [
   {
@@ -472,12 +450,7 @@ let firstFetchDone = false;
 function loadAuth(){ try { const raw = sessionStorage.getItem(LS_KEY); if (!raw) return false; authHeader = raw; return true; } catch(_) { return false; } }
 function saveAuth(u,p){ authHeader='Basic '+btoa(u+':'+p); try { sessionStorage.setItem(LS_KEY, authHeader); } catch(_) {} }
 function clearAuth(){ authHeader=null; try { sessionStorage.removeItem(LS_KEY); } catch(_) {} }
-function showLogin(){
-  document.getElementById('loginOverlay').classList.add('show');
-  document.getElementById('loginUser').value='';
-  document.getElementById('loginPass').value='';
-  document.getElementById('loginErr').textContent='';
-}
+function showLogin(){ location.href = '../login/index.html'; }
 function hideLogin(){ document.getElementById('loginOverlay').classList.remove('show'); }
 document.getElementById('loginBtn').addEventListener('click', attemptLogin);
 document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
@@ -519,7 +492,7 @@ async function fetchIncidents(){
     incidents.forEach(i => seenIds.add(i.incident_id));
     persistSeen();
     if(!selectedId && incidents.length) selectedId = incidents[0].incident_id;
-    setConn('ok','Live'); renderAll(); refreshMap();
+    setConn('ok', soundEnabled ? 'Live' : 'Live · click page for alert sound'); renderAll(); refreshMap();
   } catch(e){ setConn('err','Backend offline'); }
 }
 function setConn(state,text){
@@ -530,14 +503,22 @@ function setConn(state,text){
   document.getElementById('connText').textContent = text;
 }
 
+let sseTimer = null;
+function scheduleReconnect(){
+  clearTimeout(sseTimer);
+  if(!authHeader) return;
+  setConn('err','Reconnecting…');
+  sseTimer = setTimeout(async () => { if(!authHeader) return; await fetchIncidents(); startSSE(); }, 3000);
+}
 function startSSE(){
   if(!authHeader) return;
   fetch(API_BASE + '/api/stream', { headers:{'Authorization': authHeader} })
     .then(resp => {
-        if(!resp.body) return;
+        if(resp.status===401){ showLogin(); return; }
+        if(!resp.body) return scheduleReconnect();
         const reader = resp.body.getReader(); const dec = new TextDecoder(); let buf = '';
         const read = () => reader.read().then(({value, done}) => {
-            if(done) return;
+            if(done) return scheduleReconnect();
             buf += dec.decode(value, { stream:true });
             let idx;
             while((idx = buf.indexOf('\n\n')) !== -1){
@@ -546,7 +527,7 @@ function startSSE(){
             read();
         });
         read();
-    }).catch(e => console.log("SSE not available, relying on Socket.IO"));
+    }).catch(() => scheduleReconnect());
 }
 
 function handleSSE(chunk) {
@@ -582,21 +563,31 @@ function handleSSE(chunk) {
   showPopup(incident);
 }
 
+function contactHtml(inc){
+  if (!inc.contact_name && !inc.contact_phone) return 'Not provided';
+  return safe(inc.contact_name || '') + (inc.contact_rel ? ' (' + safe(inc.contact_rel) + ')' : '') +
+    (inc.contact_phone ? '<br><small style="color:#7b879a">' + safe(inc.contact_phone) + '</small>' : '');
+}
 function showPopup(inc){
   currentPopupIncidentId = inc.incident_id;
-  const timeStr = inc.scanTime ? new Date(inc.scanTime).toLocaleString() : (inc.created_at ? new Date(inc.created_at).toLocaleString() : '—');
-  const hasLoc = inc.location && (inc.location.text || inc.location.lat);
-  const locationText = hasLoc ? (inc.location.text || (inc.location.lat + ', ' + inc.location.lng)) : 'Not provided';
-  const sourceLabel = inc.location ? inc.location.source : 'unknown';
-
+  const timeStr = inc.created_at ? new Date(inc.created_at).toLocaleString() : '—';
+  const hasLoc = inc.latitude != null && inc.longitude != null;
+  const locationText = hasLoc ? Number(inc.latitude).toFixed(5) + ', ' + Number(inc.longitude).toFixed(5) : 'Not shared';
+  const row = (k, v) => '<div class="popup-row"><span>' + k + '</span><span>' + v + '</span></div>';
+  const st = inc.status || 'WAITING FOR RESPONSE';
   document.getElementById('popupBody').innerHTML =
-    '<div class="popup-id">'+safe(inc.incident_id)+'</div>' +
-    '<div class="popup-row"><span>Patient</span><span>'+safe(inc.name||'Unknown')+'</span></div>' +
-    '<div class="popup-row"><span>Age</span><span>'+(inc.age ? safe(inc.age)+' years' : 'Not provided')+'</span></div>' +
-    '<div class="popup-row"><span>Scan Time</span><span>'+safe(timeStr)+'</span></div>' +
-    '<div class="popup-row"><span>Verified Location</span><span>'+safe(locationText)+' <br><small style="color:#7b879a">(Source: '+safe(sourceLabel)+')</small></span></div>' +
-    '<div class="popup-row"><span>Status</span><span class="status NEW">NEW</span></div>';
-  
+    '<div class="popup-id">' + safe(inc.incident_id) + '</div>' +
+    row('Emergency type', 'Health Emergency') +
+    row('Incident time', safe(timeStr)) +
+    row('Patient', safe(inc.name || 'Unknown')) +
+    row('Age', inc.age ? safe(inc.age) + ' years' : 'Not provided') +
+    row('Blood group', '<strong style="color:#cf343b">' + safe(inc.blood || 'Not provided') + '</strong>') +
+    row('Medical conditions', safe(inc.conditions || 'Not provided')) +
+    row('Allergies', safe(inc.allergies || 'Not provided')) +
+    row('Medications', safe(inc.medications || 'Not provided')) +
+    row('Emergency contact', contactHtml(inc)) +
+    row('Location', safe(locationText)) +
+    row('Status', '<span class="status ' + String(st).replace(/\s+/g, '-') + '">' + safe(st) + '</span>');
   document.getElementById('popupOverlay').classList.add('show');
 }
 
@@ -621,8 +612,15 @@ document.getElementById('popupOverlay').addEventListener('click', e => {
 function initMap(){
   if(map) return;
   if(typeof L === 'undefined'){ setTimeout(initMap, 300); return; }
-  map = L.map('map', { zoomControl:true, attributionControl:false }).setView(DEFAULT_CENTER, 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
+  map = L.map('map', { zoomControl:true }).setView(DEFAULT_CENTER, 12);
+  let tileErrors = 0, usingFallback = false;
+  const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+  const primary = L.tileLayer(ESRI, { maxZoom:19, attribution:'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors' }).addTo(map);
+  primary.on('tileerror', () => {
+    if (usingFallback || ++tileErrors < 4) return;
+    usingFallback = true; map.removeLayer(primary);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom:19, subdomains:'abc', attribution:'© OpenStreetMap contributors, tiles by OpenStreetMap France' }).addTo(map);
+  });
   markerLayer = L.layerGroup().addTo(map);
   routeLayer = L.layerGroup().addTo(map);
   refreshMap();
@@ -716,7 +714,7 @@ function dispatchAmbulance(ambId) {
   );
 
   const incident = getSelected();
-  if (incident) updateStatus(incident.incident_id, 'IN PROGRESS');
+  if (incident) updateStatus(incident.incident_id, 'AMBULANCE DISPATCHED');
 
   refreshMap();
 }
@@ -761,8 +759,8 @@ function renderTable(){
   document.getElementById('tableCount').textContent = 'Showing '+incidents.length+' incident'+(incidents.length===1?'':'s');
 }
 function renderStats(){
-  document.getElementById('newCount').textContent = incidents.filter(i => i.status==='NEW').length;
-  document.getElementById('activeCount').textContent = incidents.filter(i => i.status==='ACKNOWLEDGED'||i.status==='IN PROGRESS'||i.status==='Dispatched').length;
+  document.getElementById('newCount').textContent = incidents.filter(i => isNewStatus(i.status)).length;
+  document.getElementById('activeCount').textContent = incidents.filter(i => isActiveStatus(i.status)).length;
   document.getElementById('resolvedCount').textContent = incidents.filter(i => i.status==='RESOLVED').length;
 }
 function renderPatient(){
@@ -778,6 +776,7 @@ function renderPatient(){
       '<div class="detail" style="grid-column:1/-1"><label>Allergies</label><div>'+(i.allergies?safe(i.allergies):'Not provided')+'</div></div>' +
       '<div class="detail" style="grid-column:1/-1"><label>Conditions</label><div>'+(i.conditions?safe(i.conditions):'Not provided')+'</div></div>' +
       '<div class="detail" style="grid-column:1/-1"><label>Medications</label><div>'+(i.medications?safe(i.medications):'Not provided')+'</div></div>' +
+      '<div class="detail" style="grid-column:1/-1"><label>Emergency Contact</label><div>'+contactHtml(i)+'</div></div>' +
     '</div>' +
     '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
       '<button style="flex:1;padding:11px;border:none;border-radius:8px;background:#356ae6;color:#fff;font-weight:700;cursor:pointer" onclick="updateStatus(\''+i.incident_id+'\',\'ACKNOWLEDGED\')">Acknowledge</button>' +
@@ -805,6 +804,7 @@ function showToast(msg){
     }
     if(audioCtx.state === 'suspended') audioCtx.resume();
     soundEnabled = true;
+    const ct = document.getElementById('connText'); if (ct && ct.textContent.startsWith('Live ·')) setConn('ok', 'Live');
   }, { once: true });
 
   if(loadAuth()){
