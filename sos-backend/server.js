@@ -11,14 +11,14 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
 const SOS_API_KEY = process.env.SOS_API_KEY || 'dev-local-shared-key-change-me';
-const STAFF_USER = process.env.STAFF_USER || 'hospital';
-const STAFF_PASS = process.env.STAFF_PASS || 'hospital123';
+const STAFF_USER = process.env.STAFF_USER || 'hospital@sosbuddy.demo';
+const STAFF_PASS = process.env.STAFF_PASS || 'Hospital@2026';
 const POLICE_USER = process.env.POLICE_USER || 'police@sosbuddy.demo';
-const POLICE_PASS = process.env.POLICE_PASS || 'Police@123';
+const POLICE_PASS = process.env.POLICE_PASS || 'Police@2026';
 const NGO_USER = process.env.NGO_USER || 'ngo@sosbuddy.demo';
-const NGO_PASS = process.env.NGO_PASS || 'NGO@123';
+const NGO_PASS = process.env.NGO_PASS || 'Ngo@2026';
 const HELPER_USER = process.env.HELPER_USER || 'helper@sosbuddy.demo';
-const HELPER_PASS = process.env.HELPER_PASS || 'Helper@123';
+const HELPER_PASS = process.env.HELPER_PASS || 'Helper@2026';
 
 const WAITING = 'WAITING FOR RESPONSE';
 const DB_PATH = path.join(__dirname, 'incidents.db');
@@ -281,13 +281,16 @@ async function startServer() {
     );
   `);
 
-  // Upgrade older databases in place (emergency contact + address snapshots for the dashboards)
+  // Upgrade older databases in place (dashboard snapshots and incident delivery metadata)
   ensureColumn('patients', 'contact_name', 'TEXT');
   ensureColumn('patients', 'contact_phone', 'TEXT');
   ensureColumn('patients', 'contact_rel', 'TEXT');
   ensureColumn('incidents', 'contact_name', 'TEXT');
   ensureColumn('incidents', 'contact_phone', 'TEXT');
   ensureColumn('incidents', 'contact_rel', 'TEXT');
+  ensureColumn('incidents', 'location_source', "TEXT DEFAULT 'unavailable'");
+  ensureColumn('incidents', 'location_owner', "TEXT DEFAULT 'unknown'");
+  ensureColumn('incidents', 'delivery_status', "TEXT DEFAULT 'DELIVERED'");
   ensureColumn('security_incidents', 'address', 'TEXT');
   ensureColumn('security_incidents', 'contact_name', 'TEXT');
   ensureColumn('security_incidents', 'contact_phone', 'TEXT');

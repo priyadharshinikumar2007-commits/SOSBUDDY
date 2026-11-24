@@ -1,8 +1,16 @@
 'use strict';
-const DEFAULT_API = 'https://sos-backend-production-0e25.up.railway.app';
-const onLocalhost = /^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const PROD_API = 'https://sos-backend-production-0e25.up.railway.app';
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
+function pickApiBase(saved) {
+  const q = new URLSearchParams(location.search).get('api');
+  if (q) return q;
+  if (saved) return saved;
+  if (location.protocol === 'file:') return 'http://localhost:4000';
+  if (/^https?:$/.test(location.protocol) && LOCAL_HOST.test(location.hostname)) return location.origin;
+  return PROD_API;
+}
 const savedApi = (() => { try { return sessionStorage.getItem('sosbuddy-api'); } catch (_) { return null; } })();
-const API_BASE = (new URLSearchParams(location.search).get('api') || savedApi || (onLocalhost ? location.origin : DEFAULT_API)).replace(/\/$/, '');
+const API_BASE = pickApiBase(savedApi).replace(/\/$/, '');
 const SESSION_KEY = 'sosbuddy-security-session';
 const ROLE_NAMES = { Police: 'Police Responder', NGO: 'NGO Responder', Helper: 'Verified Helper' };
 const ROLE_NOTES = {

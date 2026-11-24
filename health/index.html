@@ -30,6 +30,9 @@ h1{font-size:25px;margin-bottom:4px}
 .conn .dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:blink 1.2s infinite}
 .conn.ok{color:#16815e}.conn.ok .dot{background:#22c55e;animation:none}
 .conn.err{color:#cf343b}.conn.err .dot{background:#e5484d;animation:none}
+.sound-btn{padding:7px 10px;border:1px solid #e8edf4;border-radius:8px;background:#fff;
+  color:#315bc1;font-size:11px;font-weight:700;cursor:pointer}
+.sound-btn:disabled{background:#eaf7f0;color:#16815e;cursor:default}
 @keyframes blink{50%{opacity:.4}}
 .icon-btn{width:36px;height:36px;border-radius:9px;background:#fff;border:1px solid #e8edf4;
   cursor:pointer;color:#475569;display:inline-flex;align-items:center;justify-content:center;transition:.15s}
@@ -199,6 +202,7 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
       </div>
       <div style="display:flex;gap:10px;align-items:center">
         <span class="conn" id="connBadge"><span class="dot"></span><span id="connText">Connecting…</span></span>
+        <button class="sound-btn" id="enableSoundBtn" type="button" onclick="enableAlertSound()">Enable sound</button>
         <button class="icon-btn" title="Sign out" onclick="logout()"><svg><use href="#i-logout"/></svg></button>
       </div>
     </div>
@@ -296,10 +300,18 @@ tbody tr.selected{background:#edf3ff;box-shadow:inset 3px 0 0 #356ae6}
 
 <!-- Keep the next main <script> block here; delete only the panel-creating inline script. -->
 <script>
-const DEFAULT_API = 'https://sos-backend-production-0e25.up.railway.app';
-const onLocalhost = /^https?:$/.test(location.protocol) && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const PROD_API = 'https://sos-backend-production-0e25.up.railway.app';
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$/;
+function pickApiBase(saved) {
+  const q = new URLSearchParams(location.search).get('api');
+  if (q) return q;
+  if (saved) return saved;
+  if (location.protocol === 'file:') return 'http://localhost:4000';
+  if (/^https?:$/.test(location.protocol) && LOCAL_HOST.test(location.hostname)) return location.origin;
+  return PROD_API;
+}
 const savedApi = (() => { try { return sessionStorage.getItem('sosbuddy-api'); } catch (_) { return null; } })();
-const API_BASE = (new URLSearchParams(location.search).get('api') || savedApi || (onLocalhost ? location.origin : DEFAULT_API)).replace(/\/$/, '');
+const API_BASE = pickApiBase(savedApi).replace(/\/$/, '');
 const LS_KEY = 'sosbuddy-dashboard-auth';
 const SEEN_KEY = 'sosbuddy-seen-ids-v11';
 const DEFAULT_CENTER = [13.0827, 80.2707];
@@ -315,6 +327,7 @@ let currentPopupIncidentId = null;
 // --- AUDIO SETUP ---
 let audioCtx = null;
 let soundEnabled = false;
+let pendingAlertSound = false;
 
 function playSiren() {
     if(!soundEnabled || !audioCtx) return;
@@ -328,6 +341,34 @@ function playSiren() {
     osc.connect(gain).connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + 1.2);
+}
+
+function enableAlertSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) throw new Error('Audio is not supported in this browser.');
+    if (!audioCtx) audioCtx = new AudioContext();
+    const resumed = audioCtx.state === 'suspended' ? audioCtx.resume() : Promise.resolve();
+    resumed.then(() => {
+      if (audioCtx.state !== 'running') throw new Error('The browser did not enable audio playback.');
+      soundEnabled = true;
+      const button = document.getElementById('enableSoundBtn');
+      button.textContent = 'Sound enabled';
+      button.disabled = true;
+      const ct = document.getElementById('connText');
+      if (ct && ct.textContent.startsWith('Live')) setConn('ok', 'Live · sound on');
+      if (pendingAlertSound) {
+        pendingAlertSound = false;
+        playSiren();
+      }
+    }).catch(err => {
+      setConn('ok', 'Live · sound unavailable');
+      console.error('Unable to enable alert sound:', err);
+    });
+  } catch (err) {
+    setConn('ok', 'Live · sound unavailable');
+    console.error('Unable to enable alert sound:', err);
+  }
 }
 
 const SAMPLE_INCIDENTS = [
@@ -492,7 +533,7 @@ async function fetchIncidents(){
     incidents.forEach(i => seenIds.add(i.incident_id));
     persistSeen();
     if(!selectedId && incidents.length) selectedId = incidents[0].incident_id;
-    setConn('ok', soundEnabled ? 'Live' : 'Live · click page for alert sound'); renderAll(); refreshMap();
+    setConn('ok', soundEnabled ? 'Live · sound on' : 'Live · click page for alert sound'); renderAll(); refreshMap();
   } catch(e){ setConn('err','Backend offline'); }
 }
 function setConn(state,text){
@@ -559,8 +600,9 @@ function handleSSE(chunk) {
 
   renderAll();
   refreshMap();
-  playSiren();
   showPopup(incident);
+  if (soundEnabled) playSiren();
+  else pendingAlertSound = true;
 }
 
 function contactHtml(inc){
@@ -797,15 +839,7 @@ function showToast(msg){
 }
 
 (async function boot(){
-  // Auto-enable sound on first click anywhere on the page
-  document.addEventListener('click', () => {
-    if(!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if(audioCtx.state === 'suspended') audioCtx.resume();
-    soundEnabled = true;
-    const ct = document.getElementById('connText'); if (ct && ct.textContent.startsWith('Live ·')) setConn('ok', 'Live');
-  }, { once: true });
+  document.addEventListener('pointerdown', enableAlertSound, { once: true });
 
   if(loadAuth()){
     hideLogin();
