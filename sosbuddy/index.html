@@ -1083,6 +1083,41 @@ const app={
   },
   showSOSChoiceModal(){showSOSChoiceModal()},
   toggleTheme(){toggleTheme()},
+  downloadQR(){
+    const canvas=document.getElementById('myQRCanvas');
+    if(!canvas){alert('Open My QR Code before downloading.');return}
+    try{
+      const link=document.createElement('a');
+      link.href=canvas.toDataURL('image/png');
+      link.download='sosbuddy-emergency-qr.png';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }catch(err){
+      console.error('QR code download failed:',err);
+      alert('Could not download the QR code. Please try again.');
+    }
+  },
+  async shareQR(){
+    const canvas=document.getElementById('myQRCanvas');
+    if(!canvas){alert('Open My QR Code before sharing.');return}
+    if(!navigator.share){
+      this.downloadQR();
+      alert('Sharing is not supported here. The QR image was downloaded instead.');
+      return;
+    }
+    try{
+      await navigator.share({
+        title:'SOS Buddy Emergency QR',
+        text:'Open this link to view the SOS Buddy emergency options.',
+        url:buildQRPayload()
+      });
+    }catch(err){
+      if(err.name==='AbortError')return;
+      console.error('QR code share failed:',err);
+      alert('Could not share the QR code. Please try downloading it instead.');
+    }
+  },
   
   async saveProfile(){
     const profile={
